@@ -16,13 +16,13 @@ importers:
       socket.io:
         specifier: ^4.8.3
         version: 4.8.3
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
     devDependencies:
       '@types/node':
         specifier: ^20
         version: 20.19.41
-      tsx:
-        specifier: ^4.19.2
-        version: 4.21.0
       typescript:
         specifier: ^5
         version: 5.9.3
