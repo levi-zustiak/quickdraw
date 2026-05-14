@@ -1,4 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
 allowBuilds:
+  esbuild: true
   msw: true
   sharp: false
   unrs-resolver: false

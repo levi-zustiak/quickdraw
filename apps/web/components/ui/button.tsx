@@ -19,6 +19,12 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
+        "qd-primary":
+          "bg-qd-ink text-white border border-qd-ink rounded-[3px] font-sans font-semibold text-[16px] leading-none py-[18px] px-8 hover:bg-black",
+        "qd-secondary":
+          "bg-qd-surface text-qd-ink border border-qd-line-strong rounded-[3px] font-sans font-medium text-[14px] leading-none py-[14px] px-[22px] hover:bg-qd-paper hover:border-qd-ink-2",
+        "qd-ghost":
+          "border-0 bg-transparent text-qd-ink-2 rounded-[3px] font-sans font-medium text-[13px] leading-none py-[10px] px-[18px] hover:text-qd-ink hover:bg-qd-paper",
       },
       size: {
         default:
