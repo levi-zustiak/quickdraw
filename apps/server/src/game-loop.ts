@@ -130,6 +130,8 @@ export class GameLoop {
       room.phase = 'holster';
       room.p1Shot = null;
       room.p2Shot = null;
+      room.p1Holstered = false;
+      room.p2Holstered = false;
       room.round += 1;
       console.log(`[ws] request-next-round  sid=${sid} room=${roomCode} -> round=${room.round}`);
       this.io.to(roomCode).emit('next-round', { round: room.round });

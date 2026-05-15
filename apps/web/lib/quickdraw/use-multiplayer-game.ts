@@ -30,6 +30,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   const targetSpawnedAtRef = useRef<number>(0);
   const targetRef = useRef<Target | null>(null);
   const roundRef = useRef<number>(0);
+  const targetSpawnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string, durationMs = 2000) => {
     setToast(msg);
@@ -68,6 +69,10 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
 
     socket.on('game-start', ({ round: r }) => {
       console.log(`[ws] game-start  round=${r}`);
+      if (targetSpawnTimerRef.current) {
+        clearTimeout(targetSpawnTimerRef.current);
+        targetSpawnTimerRef.current = null;
+      }
       setRound(r);
       roundRef.current = r;
       setShots({ p1: null, p2: null });
@@ -84,6 +89,12 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
 
     socket.on('false-start', ({ by }: { by: 'p1' | 'p2' }) => {
       console.log(`[ws] false-start  by=${by}`);
+      if (targetSpawnTimerRef.current) {
+        clearTimeout(targetSpawnTimerRef.current);
+        targetSpawnTimerRef.current = null;
+      }
+      setTarget(null);
+      targetRef.current = null;
       setHolsterArmed(false);
       setPhase('holster');
       showToast(by === myRoleRef.current ? 'False start! Re-holster when ready…' : 'Opponent flinched! Holster up again…', 2400);
@@ -92,8 +103,10 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
     socket.on('target-spawn', ({ armingDelayMs, serverSpawnAt }) => {
       setPhase('arming');
 
+      if (targetSpawnTimerRef.current) clearTimeout(targetSpawnTimerRef.current);
       const delay = serverSpawnAt - Date.now();
-      setTimeout(() => {
+      targetSpawnTimerRef.current = setTimeout(() => {
+        targetSpawnTimerRef.current = null;
         const stage = document.querySelector('[data-qd-stage]');
         if (!stage) return;
         const rect = stage.getBoundingClientRect();
@@ -139,6 +152,10 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
     });
 
     socket.on('next-round', ({ round: r }) => {
+      if (targetSpawnTimerRef.current) {
+        clearTimeout(targetSpawnTimerRef.current);
+        targetSpawnTimerRef.current = null;
+      }
       setRound(r);
       roundRef.current = r;
       setShots({ p1: null, p2: null });
