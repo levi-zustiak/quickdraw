@@ -27,6 +27,10 @@ export function damageBand(dist: number, targetSize = 200): string {
   return 'GRAZE';
 }
 
+export function isHit(dist: number, targetSize: number): boolean {
+  return dist <= targetSize / 2;
+}
+
 export function hitInViewBox(shot: Shot): { x: number; y: number } | null {
   if (!shot) return null;
   const scale = 200 / shot.targetSize;

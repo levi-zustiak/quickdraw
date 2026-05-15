@@ -125,7 +125,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       }, Math.max(0, delay));
     });
 
-    socket.on('round-result', ({ winner, p1Shot, p2Shot, damage, p1Hp, p2Hp }: { winner: 'p1' | 'p2'; p1Shot: Shot | null; p2Shot: Shot | null; damage: number; p1Hp: number; p2Hp: number }) => {
+    socket.on('round-result', ({ winner, p1Shot, p2Shot, damage, p1Hp, p2Hp }: { winner: 'p1' | 'p2' | null; p1Shot: Shot | null; p2Shot: Shot | null; damage: number; p1Hp: number; p2Hp: number }) => {
       console.log(`[ws] round-result  winner=${winner} damage=${damage} p1Hp=${p1Hp} p2Hp=${p2Hp}`);
       setShots({ p1: p1Shot, p2: p2Shot });
       setP1((p) => ({ ...p, hp: p1Hp, wins: winner === 'p1' ? p.wins + 1 : p.wins }));

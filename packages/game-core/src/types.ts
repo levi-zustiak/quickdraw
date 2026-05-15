@@ -36,7 +36,7 @@ export interface Shot {
 
 export interface RoundRecord {
   round: number;
-  winner: 'p1' | 'p2';
+  winner: 'p1' | 'p2' | null;
   p1Shot: Shot | null;
   p2Shot: Shot | null;
   damage: number;

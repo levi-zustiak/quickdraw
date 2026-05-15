@@ -8,6 +8,7 @@ import {
   rollBotShot,
   rollArmingDelay,
   pickP2Name,
+  isHit,
 } from '@quickdraw/game-core';
 
 interface BotGameOptions {
@@ -158,25 +159,41 @@ export function useBotGame(opts: BotGameOptions = {}): { state: GameState; actio
     });
   }, [phase, target, leaveHolster]);
 
-  // Settle round once both shots land (or grace period)
+  // Settle round once both shots land (or grace period after a hit)
   useEffect(() => {
     if (phase !== 'drawing') return;
-    if (!shots.p1 && !shots.p2) return;
+    const p1Hit = shots.p1 ? isHit(shots.p1.dist, shots.p1.targetSize) : false;
+    const p2Hit = shots.p2 ? isHit(shots.p2.dist, shots.p2.targetSize) : false;
+    const bothShot = !!shots.p1 && !!shots.p2;
+    if (!bothShot && !p1Hit && !p2Hit) return;
     const t = setTimeout(() => {
-      const { p1Shot, p2Shot } = { p1Shot: shots.p1, p2Shot: shots.p2 };
-      if (!p1Shot && !p2Shot) return;
-      const winner: 'p1' | 'p2' =
-        p1Shot && p2Shot
-          ? p1Shot.reactionMs <= p2Shot.reactionMs ? 'p1' : 'p2'
-          : p1Shot ? 'p1' : 'p2';
-      const winShot = winner === 'p1' ? p1Shot! : p2Shot!;
-      const damage = winShot.damage;
+      const p1Shot = shots.p1;
+      const p2Shot = shots.p2;
+      const p1HitF = p1Shot ? isHit(p1Shot.dist, p1Shot.targetSize) : false;
+      const p2HitF = p2Shot ? isHit(p2Shot.dist, p2Shot.targetSize) : false;
+
+      let winner: 'p1' | 'p2' | null;
+      let damage: number;
+
+      if (p1HitF && p2HitF) {
+        winner = p1Shot!.reactionMs <= p2Shot!.reactionMs ? 'p1' : 'p2';
+        damage = (winner === 'p1' ? p1Shot! : p2Shot!).damage;
+      } else if (p1HitF) {
+        winner = 'p1';
+        damage = p1Shot!.damage;
+      } else if (p2HitF) {
+        winner = 'p2';
+        damage = p2Shot!.damage;
+      } else {
+        winner = null;
+        damage = 0;
+      }
 
       if (winner === 'p1') {
         setP2((p) => ({ ...p, hp: Math.max(0, p.hp - damage) }));
         setP1((p) => ({ ...p, wins: p.wins + 1 }));
         setHudFlash({ p1: false, p2: true });
-      } else {
+      } else if (winner === 'p2') {
         setP1((p) => ({ ...p, hp: Math.max(0, p.hp - damage) }));
         setP2((p) => ({ ...p, wins: p.wins + 1 }));
         setHudFlash({ p1: true, p2: false });

@@ -1,6 +1,6 @@
 import type { Server, Socket } from 'socket.io';
 import type { Shot } from '@quickdraw/game-core';
-import { rollArmingDelay, computeDamage } from '@quickdraw/game-core';
+import { rollArmingDelay, computeDamage, isHit } from '@quickdraw/game-core';
 import type { RoomManager } from './room-manager';
 import { STARTING_HP } from './room-manager';
 
@@ -117,7 +117,7 @@ export class GameLoop {
 
       if (bothShot) {
         this.settleRound(roomCode);
-      } else {
+      } else if (isHit(dist, targetSize)) {
         setTimeout(() => {
           const current = this.rooms.getRoom(roomCode);
           if (current && current.phase === 'drawing') {
@@ -165,17 +165,30 @@ export class GameLoop {
     if (!room || room.phase !== 'drawing') return;
 
     const { p1Shot, p2Shot } = room;
-    const winner: 'p1' | 'p2' =
-      p1Shot && p2Shot
-        ? p1Shot.reactionMs <= p2Shot.reactionMs ? 'p1' : 'p2'
-        : p1Shot ? 'p1' : 'p2';
 
-    const winShot = winner === 'p1' ? p1Shot! : p2Shot!;
-    const damage = winShot.damage;
+    const p1Hit = p1Shot ? isHit(p1Shot.dist, p1Shot.targetSize) : false;
+    const p2Hit = p2Shot ? isHit(p2Shot.dist, p2Shot.targetSize) : false;
+
+    let winner: 'p1' | 'p2' | null;
+    let damage: number;
+
+    if (p1Hit && p2Hit) {
+      winner = p1Shot!.reactionMs <= p2Shot!.reactionMs ? 'p1' : 'p2';
+      damage = (winner === 'p1' ? p1Shot! : p2Shot!).damage;
+    } else if (p1Hit) {
+      winner = 'p1';
+      damage = p1Shot!.damage;
+    } else if (p2Hit) {
+      winner = 'p2';
+      damage = p2Shot!.damage;
+    } else {
+      winner = null;
+      damage = 0;
+    }
 
     if (winner === 'p1') {
       room.p2Hp = Math.max(0, room.p2Hp - damage);
-    } else {
+    } else if (winner === 'p2') {
       room.p1Hp = Math.max(0, room.p1Hp - damage);
     }
 
