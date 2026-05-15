@@ -13,9 +13,10 @@ interface GameScreenProps {
   max: number;
   holsterStyle?: HolsterStyle;
   hasHover?: boolean;
+  isSpectator?: boolean;
 }
 
-export function GameScreen({ state, actions, max, holsterStyle = 'buzzer', hasHover = false }: GameScreenProps) {
+export function GameScreen({ state, actions, max, holsterStyle = 'buzzer', hasHover = false, isSpectator = false }: GameScreenProps) {
   const { phase, p1, p2, target, hudFlash, round, holsterArmed } = state;
   const holsterRef = useRef<HTMLDivElement>(null);
   const heldPointerRef = useRef<number | null>(null);
@@ -71,17 +72,17 @@ export function GameScreen({ state, actions, max, holsterStyle = 'buzzer', hasHo
     return () => cancelAnimationFrame(raf);
   }, [phase, holsterStyle]);
 
-  const showHolster = phase === 'holster' || phase === 'arming';
+  const showHolster = !isSpectator && (phase === 'holster' || phase === 'arming');
 
   return (
     <div
       className="flex-1 relative overflow-hidden bg-qd-paper"
       data-qd-stage
-      onPointerMove={onPointerMove}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      style={{ touchAction: 'none' }}
+      onPointerMove={isSpectator ? undefined : onPointerMove}
+      onPointerDown={isSpectator ? undefined : onPointerDown}
+      onPointerUp={isSpectator ? undefined : onPointerUp}
+      onPointerCancel={isSpectator ? undefined : onPointerUp}
+      style={{ touchAction: isSpectator ? undefined : 'none' }}
     >
       {/* HUD */}
       <div className="absolute top-4 left-5 right-5 flex justify-between items-start gap-6 z-20">
@@ -138,6 +139,15 @@ export function GameScreen({ state, actions, max, holsterStyle = 'buzzer', hasHo
           }}
         >
           <TargetSvg size={target.size}/>
+        </div>
+      )}
+
+      {/* Spectator badge */}
+      {isSpectator && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <span className="font-mono text-[10px] tracking-[0.12em] uppercase px-2 py-1 rounded-[2px] bg-qd-surface border border-qd-line text-qd-ink-3">
+            Spectating
+          </span>
         </div>
       )}
 

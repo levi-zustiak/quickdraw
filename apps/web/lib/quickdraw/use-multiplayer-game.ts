@@ -24,9 +24,10 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   const [holsterArmed, setHolsterArmed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [muzzleFlash, setMuzzleFlash] = useState(false);
-  const [myRole, setMyRole] = useState<'p1' | 'p2' | null>(null);
+  const [myRole, setMyRole] = useState<'p1' | 'p2' | 'spectator' | null>(null);
+  const [spectators, setSpectators] = useState(0);
 
-  const myRoleRef = useRef<'p1' | 'p2' | null>(null);
+  const myRoleRef = useRef<'p1' | 'p2' | 'spectator' | null>(null);
   const currentRoomRef = useRef<string>('');
   const targetSpawnedAtRef = useRef<number>(0);
   const targetRef = useRef<Target | null>(null);
@@ -46,6 +47,20 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       myRoleRef.current = role;
       setMyRole(role);
       currentRoomRef.current = rc;
+      if (role === 'spectator') setRoomCode(rc);
+    });
+
+    socket.on('game-snapshot', ({ phase: p, p1Name, p2Name, p1Hp, p2Hp, p1Ready, p2Ready, round: r, spectatorCount }) => {
+      setP1({ name: p1Name.toUpperCase(), hp: p1Hp, ready: p1Ready, wins: 0 });
+      setP2({ name: p2Name.toUpperCase(), hp: p2Hp, ready: p2Ready, wins: 0 });
+      setRound(r);
+      roundRef.current = r;
+      setSpectators(spectatorCount);
+      setPhase(p as Phase);
+    });
+
+    socket.on('spectator-count', ({ count }) => {
+      setSpectators(count);
     });
 
     socket.on('join-error', ({ message }) => {
@@ -194,6 +209,8 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       socket.off('player-holstered');
       socket.off('player-ready');
       socket.off('player-unready');
+      socket.off('game-snapshot');
+      socket.off('spectator-count');
       socket.off('false-start');
       socket.off('target-spawn');
       socket.off('round-result');
@@ -321,7 +338,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   return {
     state: {
       phase, roomCode, p1, p2, round, history, target, shots,
-      hudFlash, holsterArmed, toast, vsBot: false, spectators: 0, muzzleFlash, startingHp, myRole,
+      hudFlash, holsterArmed, toast, vsBot: false, spectators, muzzleFlash, startingHp, myRole,
     },
     actions: {
       createRoom, joinRoom, startVsBot, readyUp, unready, armHolster, leaveHolster, fire, rematch, reset, setToast,

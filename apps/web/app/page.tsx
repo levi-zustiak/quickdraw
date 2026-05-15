@@ -96,6 +96,7 @@ function GameRoot({
           max={startingHp}
           holsterStyle={holsterStyle}
           hasHover={hasHover}
+          isSpectator={state.myRole === 'spectator'}
         />
       )}
 

@@ -4,7 +4,9 @@ import { io, type Socket } from 'socket.io-client';
 import type { Shot } from '@quickdraw/game-core';
 
 export interface ServerToClientEvents {
-  joined: (payload: { role: 'p1' | 'p2'; roomCode: string }) => void;
+  joined: (payload: { role: 'p1' | 'p2' | 'spectator'; roomCode: string }) => void;
+  'game-snapshot': (payload: { phase: string; p1Name: string; p2Name: string; p1Hp: number; p2Hp: number; p1Ready: boolean; p2Ready: boolean; round: number; spectatorCount: number }) => void;
+  'spectator-count': (payload: { count: number }) => void;
   'join-error': (payload: { message: string }) => void;
   'player-joined': (payload: { name: string; role: 'p1' | 'p2' }) => void;
   'player-left': (payload: Record<string, never>) => void;

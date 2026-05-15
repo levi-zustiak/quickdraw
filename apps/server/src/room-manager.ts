@@ -17,6 +17,7 @@ export interface RoomState {
   targetSpawnedAt: number;
   p1Shot: Shot | null;
   p2Shot: Shot | null;
+  spectatorSocketIds: Set<string>;
 }
 
 export const STARTING_HP = 100;
@@ -49,6 +50,7 @@ export class RoomManager {
         targetSpawnedAt: 0,
         p1Shot: null,
         p2Shot: null,
+        spectatorSocketIds: new Set(),
       };
       this.rooms.set(roomCode, room);
       return { role: 'p1', room };
@@ -64,8 +66,22 @@ export class RoomManager {
     return { role: 'p2', room };
   }
 
-  leaveRoom(socketId: string): { roomCode: string; room: RoomState } | null {
+  joinAsSpectator(roomCode: string, socketId: string): { room: RoomState } | { error: string } {
+    const room = this.rooms.get(roomCode);
+    if (!room || room.phase === 'waiting') return { error: 'Room not found' };
+    room.spectatorSocketIds.add(socketId);
+    return { room };
+  }
+
+  leaveRoom(socketId: string):
+    | { type: 'player'; roomCode: string; room: RoomState }
+    | { type: 'spectator'; roomCode: string; spectatorCount: number }
+    | null {
     for (const [roomCode, room] of this.rooms) {
+      if (room.spectatorSocketIds.has(socketId)) {
+        room.spectatorSocketIds.delete(socketId);
+        return { type: 'spectator', roomCode, spectatorCount: room.spectatorSocketIds.size };
+      }
       if (room.p1SocketId === socketId || room.p2SocketId === socketId) {
         if (room.p1SocketId === socketId) {
           if (room.p2SocketId) {
@@ -87,7 +103,7 @@ export class RoomManager {
           room.p1Holstered = false;
           room.p2Holstered = false;
         }
-        return { roomCode, room };
+        return { type: 'player', roomCode, room };
       }
     }
     return null;

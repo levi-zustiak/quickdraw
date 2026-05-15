@@ -58,7 +58,7 @@ export interface GameState {
   spectators: number;
   muzzleFlash: boolean;
   startingHp: number;
-  myRole: 'p1' | 'p2' | null;
+  myRole: 'p1' | 'p2' | 'spectator' | null;
 }
 
 export interface GameActions {

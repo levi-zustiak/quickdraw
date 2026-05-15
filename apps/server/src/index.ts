@@ -24,11 +24,34 @@ io.on('connection', (socket) => {
 
   socket.on('join-room', ({ roomCode, playerName }: { roomCode: string; playerName: string }) => {
     const result = rooms.joinRoom(roomCode, socket.id, playerName);
+
     if ('error' in result) {
-      console.log(`[ws] join-room  sid=${sid} room=${roomCode} name="${playerName}" -> error: ${result.error}`);
-      socket.emit('join-error', { message: result.error });
+      // Room full — try joining as spectator
+      const specResult = rooms.joinAsSpectator(roomCode, socket.id);
+      if ('error' in specResult) {
+        console.log(`[ws] join-room  sid=${sid} room=${roomCode} -> error: ${specResult.error}`);
+        socket.emit('join-error', { message: specResult.error });
+        return;
+      }
+      const room = specResult.room;
+      console.log(`[ws] join-room  sid=${sid} room=${roomCode} -> spectator`);
+      socket.join(roomCode);
+      socket.emit('joined', { role: 'spectator' as const, roomCode });
+      socket.emit('game-snapshot', {
+        phase: room.phase,
+        p1Name: room.p1Name,
+        p2Name: room.p2Name ?? 'OPPONENT',
+        p1Hp: room.p1Hp,
+        p2Hp: room.p2Hp,
+        p1Ready: room.p1Ready,
+        p2Ready: room.p2Ready,
+        round: room.round,
+        spectatorCount: room.spectatorSocketIds.size,
+      });
+      io.to(roomCode).emit('spectator-count', { count: room.spectatorSocketIds.size });
       return;
     }
+
     const action = result.role === 'p1' ? 'created' : 'joined existing';
     console.log(`[ws] join-room  sid=${sid} room=${roomCode} name="${playerName}" role=${result.role} -> ${action}`);
     socket.join(roomCode);
@@ -56,7 +79,10 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => {
     console.log(`[ws] disconnect  sid=${sid}`);
     const result = rooms.leaveRoom(socket.id);
-    if (result) {
+    if (!result) return;
+    if (result.type === 'spectator') {
+      io.to(result.roomCode).emit('spectator-count', { count: result.spectatorCount });
+    } else {
       console.log(`[ws] player-left emitted  room=${result.roomCode}`);
       io.to(result.roomCode).emit('player-left', {});
     }

@@ -8,7 +8,7 @@ interface LobbyScreenProps {
   roomCode: string;
   spectators: number;
   max: number;
-  myRole: 'p1' | 'p2' | null;
+  myRole: 'p1' | 'p2' | 'spectator' | null;
   onReady: () => void;
   onUnready: () => void;
 }
@@ -49,6 +49,7 @@ function PlayerCol({ player, role, max }: { player: Player; role: string; max: n
 
 export function LobbyScreen({ p1, p2, roomCode, spectators, max, myRole, onReady, onUnready }: LobbyScreenProps) {
   const myPlayer = myRole === 'p2' ? p2 : p1;
+  const isSpectator = myRole === 'spectator';
   return (
     <div className="flex-1 relative overflow-hidden bg-qd-paper">
       <div className="absolute inset-0 flex items-center justify-center z-10 p-6 overflow-y-auto">
@@ -69,7 +70,11 @@ export function LobbyScreen({ p1, p2, roomCode, spectators, max, myRole, onReady
           </div>
 
           <div className="flex items-center gap-3 mt-2">
-            {myPlayer.ready ? (
+            {isSpectator ? (
+              <span className="font-mono text-[10px] tracking-[0.12em] uppercase px-2 py-1 rounded-[2px] bg-qd-surface border border-qd-line text-qd-ink-3">
+                Spectating
+              </span>
+            ) : myPlayer.ready ? (
               <>
                 <span className="font-mono text-[11px] tracking-[0.08em] uppercase text-qd-ink-3">Waiting for opponent…</span>
                 <Button variant="qd-ghost" onClick={onUnready}>
