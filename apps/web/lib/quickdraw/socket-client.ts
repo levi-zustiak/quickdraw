@@ -32,9 +32,31 @@ export interface ClientToServerEvents {
   'ready-up': (payload: { roomCode: string }) => void;
   'rematch': (payload: { roomCode: string }) => void;
   'leave-holster': (payload: { roomCode: string }) => void;
+  'time-sync': (callback: (serverTime: number) => void) => void;
 }
 
 export type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+export let clockOffsetMs = 0;
+
+function syncClockOffset(sock: TypedSocket): void {
+  const SAMPLES = 3;
+  let completed = 0;
+  let totalOffset = 0;
+
+  for (let i = 0; i < SAMPLES; i++) {
+    const t0 = Date.now();
+    sock.emit('time-sync', (serverTime: number) => {
+      const t1 = Date.now();
+      const rtt = t1 - t0;
+      totalOffset += serverTime - (t0 + rtt / 2);
+      completed++;
+      if (completed === SAMPLES) {
+        clockOffsetMs = totalOffset / SAMPLES;
+      }
+    });
+  }
+}
 
 let socket: TypedSocket | null = null;
 
@@ -42,6 +64,8 @@ export function getSocket(): TypedSocket {
   if (!socket) {
     const url = process.env.NEXT_PUBLIC_SERVER_URL ?? 'http://localhost:3001';
     socket = io(url, { autoConnect: false, transports: ['websocket'] }) as TypedSocket;
+
+    socket.on('connect', () => syncClockOffset(socket!));
 
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => {

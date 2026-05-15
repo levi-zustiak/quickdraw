@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Phase, Player, Target, Shot, RoundRecord, GameState, GameActions } from '@quickdraw/game-core';
 import { makeRoomCode, computeDamage } from '@quickdraw/game-core';
-import { getSocket } from './socket-client';
+import { getSocket, clockOffsetMs } from './socket-client';
 
 interface MultiplayerGameOptions {
   startingHp?: number;
@@ -104,7 +104,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       setPhase('arming');
 
       if (targetSpawnTimerRef.current) clearTimeout(targetSpawnTimerRef.current);
-      const delay = serverSpawnAt - Date.now();
+      const delay = serverSpawnAt - (Date.now() + clockOffsetMs);
       targetSpawnTimerRef.current = setTimeout(() => {
         targetSpawnTimerRef.current = null;
         const stage = document.querySelector('[data-qd-stage]');

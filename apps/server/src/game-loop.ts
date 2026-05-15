@@ -13,6 +13,10 @@ export class GameLoop {
   register(socket: Socket): void {
     const sid = socket.id.slice(0, 8);
 
+    socket.on('time-sync', (callback: (serverTime: number) => void) => {
+      callback(Date.now());
+    });
+
     socket.on('ready-up', ({ roomCode }: { roomCode: string }) => {
       const room = this.rooms.getRoom(roomCode);
       if (!room || room.phase !== 'lobby') return;
