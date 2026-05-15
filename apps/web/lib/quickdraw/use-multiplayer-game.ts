@@ -24,6 +24,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   const [holsterArmed, setHolsterArmed] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [muzzleFlash, setMuzzleFlash] = useState(false);
+  const [myRole, setMyRole] = useState<'p1' | 'p2' | null>(null);
 
   const myRoleRef = useRef<'p1' | 'p2' | null>(null);
   const currentRoomRef = useRef<string>('');
@@ -43,6 +44,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
     socket.on('joined', ({ role, roomCode: rc }) => {
       console.log(`[ws] joined  role=${role} room=${rc}`);
       myRoleRef.current = role;
+      setMyRole(role);
       currentRoomRef.current = rc;
     });
 
@@ -85,6 +87,18 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
     socket.on('player-holstered', ({ role }: { role: 'p1' | 'p2' }) => {
       console.log(`[ws] player-holstered  role=${role}`);
       if (role !== myRoleRef.current) showToast('Opponent in holster — step up!', 1800);
+    });
+
+    socket.on('player-ready', ({ role }: { role: 'p1' | 'p2' }) => {
+      console.log(`[ws] player-ready  role=${role}`);
+      if (role === 'p1') setP1((p) => ({ ...p, ready: true }));
+      else setP2((p) => ({ ...p, ready: true }));
+    });
+
+    socket.on('player-unready', ({ role }: { role: 'p1' | 'p2' }) => {
+      console.log(`[ws] player-unready  role=${role}`);
+      if (role === 'p1') setP1((p) => ({ ...p, ready: false }));
+      else setP2((p) => ({ ...p, ready: false }));
     });
 
     socket.on('false-start', ({ by }: { by: 'p1' | 'p2' }) => {
@@ -178,6 +192,8 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       socket.off('lobby-ready');
       socket.off('game-start');
       socket.off('player-holstered');
+      socket.off('player-ready');
+      socket.off('player-unready');
       socket.off('false-start');
       socket.off('target-spawn');
       socket.off('round-result');
@@ -187,9 +203,7 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   }, [startingHp, showToast]);
 
   function normalizeRoomCode(raw: string): string {
-    const stripped = raw.replace(/·/g, '').replace(/\./g, '');
-    if (stripped.length >= 3) return stripped.slice(0, 2) + '·' + stripped.slice(2);
-    return raw.toUpperCase();
+    return raw.replace(/[·.]/g, '').toUpperCase();
   }
 
   const joinRoom = useCallback((code: string, name: string) => {
@@ -220,9 +234,21 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   }, []);
 
   const readyUp = useCallback(() => {
-    setP1((p) => ({ ...p, ready: true }));
+    const role = myRoleRef.current;
+    if (!role) return;
+    if (role === 'p1') setP1((p) => ({ ...p, ready: true }));
+    else setP2((p) => ({ ...p, ready: true }));
     const socket = getSocket();
     socket.emit('ready-up', { roomCode: currentRoomRef.current });
+  }, []);
+
+  const unready = useCallback(() => {
+    const role = myRoleRef.current;
+    if (!role) return;
+    if (role === 'p1') setP1((p) => ({ ...p, ready: false }));
+    else setP2((p) => ({ ...p, ready: false }));
+    const socket = getSocket();
+    socket.emit('unready', { roomCode: currentRoomRef.current });
   }, []);
 
   const armHolster = useCallback(() => {
@@ -295,10 +321,10 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
   return {
     state: {
       phase, roomCode, p1, p2, round, history, target, shots,
-      hudFlash, holsterArmed, toast, vsBot: false, spectators: 0, muzzleFlash, startingHp,
+      hudFlash, holsterArmed, toast, vsBot: false, spectators: 0, muzzleFlash, startingHp, myRole,
     },
     actions: {
-      createRoom, joinRoom, startVsBot, readyUp, armHolster, leaveHolster, fire, rematch, reset, setToast,
+      createRoom, joinRoom, startVsBot, readyUp, unready, armHolster, leaveHolster, fire, rematch, reset, setToast,
     },
   };
 }

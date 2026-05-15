@@ -22,16 +22,31 @@ export class GameLoop {
       if (!room || room.phase !== 'lobby') return;
 
       const isP1 = room.p1SocketId === socket.id;
+      const role = isP1 ? 'p1' as const : 'p2' as const;
       if (isP1) room.p1Ready = true;
       else room.p2Ready = true;
 
-      console.log(`[ws] ready-up  sid=${sid} room=${roomCode} role=${isP1 ? 'p1' : 'p2'} p1Ready=${room.p1Ready} p2Ready=${room.p2Ready}`);
+      console.log(`[ws] ready-up  sid=${sid} room=${roomCode} role=${role} p1Ready=${room.p1Ready} p2Ready=${room.p2Ready}`);
+      socket.to(roomCode).emit('player-ready', { role });
 
       if (room.p1Ready && room.p2Ready) {
         room.phase = 'holster';
         console.log(`[ws] game-start  room=${roomCode} round=${room.round}`);
         this.io.to(roomCode).emit('game-start', { round: room.round });
       }
+    });
+
+    socket.on('unready', ({ roomCode }: { roomCode: string }) => {
+      const room = this.rooms.getRoom(roomCode);
+      if (!room || room.phase !== 'lobby') return;
+
+      const isP1 = room.p1SocketId === socket.id;
+      const role = isP1 ? 'p1' as const : 'p2' as const;
+      if (isP1) room.p1Ready = false;
+      else room.p2Ready = false;
+
+      console.log(`[ws] unready  sid=${sid} room=${roomCode} role=${role}`);
+      socket.to(roomCode).emit('player-unready', { role });
     });
 
     socket.on('arm-holster', ({ roomCode }: { roomCode: string }) => {

@@ -8,7 +8,9 @@ interface LobbyScreenProps {
   roomCode: string;
   spectators: number;
   max: number;
+  myRole: 'p1' | 'p2' | null;
   onReady: () => void;
+  onUnready: () => void;
 }
 
 function PlayerCol({ player, role, max }: { player: Player; role: string; max: number }) {
@@ -45,7 +47,8 @@ function PlayerCol({ player, role, max }: { player: Player; role: string; max: n
   );
 }
 
-export function LobbyScreen({ p1, p2, roomCode, spectators, max, onReady }: LobbyScreenProps) {
+export function LobbyScreen({ p1, p2, roomCode, spectators, max, myRole, onReady, onUnready }: LobbyScreenProps) {
+  const myPlayer = myRole === 'p2' ? p2 : p1;
   return (
     <div className="flex-1 relative overflow-hidden bg-qd-paper">
       <div className="absolute inset-0 flex items-center justify-center z-10 p-6 overflow-y-auto">
@@ -66,9 +69,18 @@ export function LobbyScreen({ p1, p2, roomCode, spectators, max, onReady }: Lobb
           </div>
 
           <div className="flex items-center gap-3 mt-2">
-            <Button variant="qd-primary" onClick={onReady} disabled={p1.ready}>
-              {p1.ready ? 'Waiting…' : "I'm ready →"}
-            </Button>
+            {myPlayer.ready ? (
+              <>
+                <span className="font-mono text-[11px] tracking-[0.08em] uppercase text-qd-ink-3">Waiting for opponent…</span>
+                <Button variant="qd-ghost" onClick={onUnready}>
+                  Unready
+                </Button>
+              </>
+            ) : (
+              <Button variant="qd-primary" onClick={onReady}>
+                I'm ready →
+              </Button>
+            )}
           </div>
 
           {spectators > 0 && (

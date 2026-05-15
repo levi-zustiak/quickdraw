@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { usePreferences } from '@/lib/quickdraw/use-preferences';
 
@@ -9,12 +9,20 @@ interface LandingScreenProps {
   onJoin: (code: string) => void;
   vsBotShortcut: () => void;
   hasHover?: boolean;
+  inviteCode?: string;
 }
 
-export function LandingScreen({ onCreate, onJoin, vsBotShortcut, hasHover = false }: LandingScreenProps) {
-  const [code, setCode] = useState('');
-  const [showJoin, setShowJoin] = useState(false);
+export function LandingScreen({ onCreate, onJoin, vsBotShortcut, hasHover = false, inviteCode }: LandingScreenProps) {
+  const [code, setCode] = useState(inviteCode ?? '');
+  const [showJoin, setShowJoin] = useState(!!inviteCode);
   const { playerName, setPlayerName, holsterStyle, setHolsterStyle } = usePreferences();
+
+  useEffect(() => {
+    if (inviteCode) {
+      setCode(inviteCode);
+      setShowJoin(true);
+    }
+  }, [inviteCode]);
 
   const HOLSTER_STYLES = ['buzzer', 'glow', 'ring'] as const;
 
@@ -27,13 +35,15 @@ export function LandingScreen({ onCreate, onJoin, vsBotShortcut, hasHover = fals
           </span>
 
           <h1 className="font-sans text-[64px] font-semibold tracking-[-0.02em] leading-none text-qd-ink">
-            Settle it the old way.
+            {inviteCode ? 'You\'ve been challenged.' : 'Settle it the old way.'}
           </h1>
 
           <p className="text-[14px] text-qd-ink-2 leading-relaxed max-w-[440px] font-sans">
-            {hasHover
-              ? 'Holster your cursor. Wait for the draw. First click hits — accuracy tells the damage. First to zero hits the dirt.'
-              : 'Press and hold the holster. Wait for the draw. First tap hits — accuracy tells the damage. First to zero hits the dirt.'}
+            {inviteCode
+              ? 'Enter your name, then join the duel.'
+              : hasHover
+                ? 'Holster your cursor. Wait for the draw. First click hits — accuracy tells the damage. First to zero hits the dirt.'
+                : 'Press and hold the holster. Wait for the draw. First tap hits — accuracy tells the damage. First to zero hits the dirt.'}
           </p>
 
           {/* Name input */}
@@ -83,15 +93,15 @@ export function LandingScreen({ onCreate, onJoin, vsBotShortcut, hasHover = fals
                 <input
                   className="flex-1 h-10 font-mono text-[14px] tracking-[0.18em] px-[14px] bg-qd-surface border border-qd-line-strong rounded-[3px] text-qd-ink text-center uppercase outline-none focus:border-qd-ink"
                   value={code}
-                  placeholder="XX·XXX"
-                  maxLength={7}
+                  placeholder="XXXXXX"
+                  maxLength={6}
                   autoFocus
                   onChange={(e) => setCode(e.target.value.toUpperCase())}
                 />
                 <Button
                   variant="qd-primary"
                   onClick={() => onJoin(code)}
-                  disabled={code.length < 5}
+                  disabled={code.length < 6}
                   className="py-[10px] text-[14px]"
                 >
                   Enter

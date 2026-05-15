@@ -58,6 +58,7 @@ export interface GameState {
   spectators: number;
   muzzleFlash: boolean;
   startingHp: number;
+  myRole: 'p1' | 'p2' | null;
 }
 
 export interface GameActions {
@@ -65,6 +66,7 @@ export interface GameActions {
   joinRoom: (code: string, name: string) => void;
   startVsBot: () => void;
   readyUp: () => void;
+  unready: () => void;
   armHolster: () => void;
   leaveHolster: () => void;
   fire: (clientX: number, clientY: number) => void;

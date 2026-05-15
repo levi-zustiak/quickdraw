@@ -251,10 +251,10 @@ export function useBotGame(opts: BotGameOptions = {}): { state: GameState; actio
   return {
     state: {
       phase, roomCode, p1, p2, round, history, target, shots,
-      hudFlash, holsterArmed, toast, vsBot: true, spectators, muzzleFlash, startingHp,
+      hudFlash, holsterArmed, toast, vsBot: true, spectators, muzzleFlash, startingHp, myRole: 'p1' as const,
     },
     actions: {
-      createRoom, joinRoom: () => {}, startVsBot, readyUp, armHolster, leaveHolster, fire, rematch, reset, setToast,
+      createRoom, joinRoom: () => {}, startVsBot, readyUp, unready: () => {}, armHolster, leaveHolster, fire, rematch, reset, setToast,
     },
   };
 }

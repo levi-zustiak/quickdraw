@@ -40,11 +40,13 @@ function GameRoot({
   actions,
   hasHover,
   onVsBot,
+  inviteCode,
 }: {
   state: GameState;
   actions: GameActions;
   hasHover: boolean;
   onVsBot?: () => void;
+  inviteCode?: string;
 }) {
   const { playerName, holsterStyle } = usePreferences();
   const { phase, p1, p2, roomCode, toast, startingHp, spectators } = state;
@@ -67,6 +69,7 @@ function GameRoot({
             setTimeout(actions.startVsBot, 60);
           })}
           hasHover={hasHover}
+          inviteCode={inviteCode}
         />
       )}
 
@@ -80,7 +83,9 @@ function GameRoot({
           roomCode={roomCode}
           spectators={spectators}
           max={startingHp}
+          myRole={state.myRole}
           onReady={actions.readyUp}
+          onUnready={actions.unready}
         />
       )}
 
@@ -125,20 +130,23 @@ function BotGame({ hasHover, autoStart }: { hasHover: boolean; autoStart: boolea
   return <GameRoot state={state} actions={actions} hasHover={hasHover} />;
 }
 
-function MultiplayerGame({ hasHover, onVsBot }: { hasHover: boolean; onVsBot: () => void }) {
+function MultiplayerGame({ hasHover, onVsBot, autoJoin }: { hasHover: boolean; onVsBot: () => void; autoJoin?: string }) {
   const { state, actions } = useMultiplayerGame({ startingHp: 100 });
-  return <GameRoot state={state} actions={actions} hasHover={hasHover} onVsBot={onVsBot} />;
+  return <GameRoot state={state} actions={actions} hasHover={hasHover} onVsBot={onVsBot} inviteCode={autoJoin} />;
 }
 
 export default function Home() {
   const [hasHover, setHasHover] = useState(false);
   const [isBot, setIsBot] = useState(false);
   const [botAutoStart, setBotAutoStart] = useState(false);
+  const [autoJoin, setAutoJoin] = useState<string | undefined>();
 
   useEffect(() => {
     setHasHover(window.matchMedia?.('(hover: hover)').matches ?? false);
     const params = new URLSearchParams(window.location.search);
     if (params.get('bot') === '1') setIsBot(true);
+    const join = params.get('join');
+    if (join) setAutoJoin(join.toUpperCase());
   }, []);
 
   const handleVsBot = () => {
@@ -149,5 +157,5 @@ export default function Home() {
   if (isBot) {
     return <BotGame hasHover={hasHover} autoStart={botAutoStart} />;
   }
-  return <MultiplayerGame hasHover={hasHover} onVsBot={handleVsBot} />;
+  return <MultiplayerGame hasHover={hasHover} onVsBot={handleVsBot} autoJoin={autoJoin} />;
 }

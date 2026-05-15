@@ -4,7 +4,7 @@ const CHARS = 'ACDEFHJKLMNPQRTUVWXY3479';
 export function makeRoomCode(): string {
   let s = '';
   for (let i = 0; i < 6; i++) s += CHARS[Math.floor(Math.random() * CHARS.length)];
-  return s.slice(0, 2) + '·' + s.slice(2);
+  return s;
 }
 
 export function computeDamage(distFromCenter: number, targetSize = 200): number {

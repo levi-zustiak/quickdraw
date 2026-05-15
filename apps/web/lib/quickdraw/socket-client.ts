@@ -22,6 +22,8 @@ export interface ServerToClientEvents {
   'next-round': (payload: { round: number }) => void;
   'player-holstered': (payload: { role: 'p1' | 'p2' }) => void;
   'false-start': (payload: { by: 'p1' | 'p2' }) => void;
+  'player-ready': (payload: { role: 'p1' | 'p2' }) => void;
+  'player-unready': (payload: { role: 'p1' | 'p2' }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -30,6 +32,7 @@ export interface ClientToServerEvents {
   'client-shot': (payload: { roomCode: string; reactionMs: number; dx: number; dy: number; targetSize: number }) => void;
   'request-next-round': (payload: { roomCode: string }) => void;
   'ready-up': (payload: { roomCode: string }) => void;
+  'unready': (payload: { roomCode: string }) => void;
   'rematch': (payload: { roomCode: string }) => void;
   'leave-holster': (payload: { roomCode: string }) => void;
   'time-sync': (callback: (serverTime: number) => void) => void;
