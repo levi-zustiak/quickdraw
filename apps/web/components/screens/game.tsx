@@ -192,6 +192,17 @@ export function GameScreen({
             </div>
           </div>
         )}
+
+        {/* Holster pad */}
+        {showHolster && (
+          <Holster
+            ref={holsterRef}
+            armed={holsterArmed}
+            style={holsterStyle}
+            ringProgress={ringProgress}
+            hasHover={hasHover}
+          />
+        )}
       </div>
 
       {/* Spectator badge */}
@@ -205,17 +216,6 @@ export function GameScreen({
 
       {/* Round result overlay */}
       {phase === "result" && <ResultOverlay state={state} />}
-
-      {/* Holster pad */}
-      {showHolster && (
-        <Holster
-          ref={holsterRef}
-          armed={holsterArmed}
-          style={holsterStyle}
-          ringProgress={ringProgress}
-          hasHover={hasHover}
-        />
-      )}
     </div>
   );
 }
