@@ -3,6 +3,7 @@ import type { Shot, Player, Target, RoundRecord } from "@quickdraw/game-core";
 import { makeRoomCode } from "@quickdraw/game-core";
 import type { TypedSocket } from "../socket-client";
 import { clockOffsetMs } from "../socket-client";
+import { toast } from "sonner";
 
 interface SpawnPayload {
   armingDelayMs: number;
@@ -27,7 +28,6 @@ export interface MultiplayerContext {
   shots: { p1: Shot | null; p2: Shot | null };
   hudFlash: { p1: boolean; p2: boolean };
   holsterArmed: boolean;
-  toast: string | null;
   spectators: number;
   muzzleFlash: boolean;
   spawnPayload: SpawnPayload | null;
@@ -102,8 +102,7 @@ export type MultiplayerEvent =
       spawnedAt: number;
     }
   | { type: "REMATCH" }
-  | { type: "RESET" }
-  | { type: "SET_TOAST"; msg: string | null };
+  | { type: "RESET" };
 
 function makePlayer(name: string, hp: number): Player {
   return { name, hp, ready: false, wins: 0 };
@@ -215,9 +214,9 @@ export const multiplayerMachine = setup({
 
     applyPlayerJoined: assign(({ context, event }) => {
       const e = event as Extract<MultiplayerEvent, { type: "PLAYER_JOINED" }>;
+      toast("Opponent joined!");
       return {
         p2: { ...context.p2, name: e.name.toUpperCase() },
-        toast: "Opponent joined!",
       };
     }),
 
@@ -309,10 +308,11 @@ export const multiplayerMachine = setup({
         e.by === context.myRole
           ? "False start! Re-holster when ready…"
           : "Opponent flinched! Holster up again…";
+
+      toast(msg);
       return {
         target: null,
         holsterArmed: false,
-        toast: msg,
         spawnPayload: null,
       };
     }),
@@ -322,8 +322,7 @@ export const multiplayerMachine = setup({
         MultiplayerEvent,
         { type: "PLAYER_HOLSTERED" }
       >;
-      if (e.role !== context.myRole)
-        return { toast: "Opponent in holster — step up!" };
+      if (e.role !== context.myRole) toast("Opponent in holster — step up!");
       return {};
     }),
 
@@ -440,11 +439,6 @@ export const multiplayerMachine = setup({
         spawnPayload: null,
       };
     }),
-
-    setToast: assign(({ event }) => {
-      const e = event as Extract<MultiplayerEvent, { type: "SET_TOAST" }>;
-      return { toast: e.msg };
-    }),
   },
 }).createMachine({
   context: ({ input }) => ({
@@ -478,7 +472,6 @@ export const multiplayerMachine = setup({
         ).count,
       })),
     },
-    SET_TOAST: { actions: "setToast" },
   },
 
   states: {
@@ -508,10 +501,7 @@ export const multiplayerMachine = setup({
         ],
         JOIN_ERROR: {
           target: "landing",
-          actions: assign(({ event }) => ({
-            toast: (event as Extract<MultiplayerEvent, { type: "JOIN_ERROR" }>)
-              .message,
-          })),
+          actions: () => toast("Failed to join"),
         },
       },
     },
@@ -527,14 +517,14 @@ export const multiplayerMachine = setup({
         },
         PLAYER_JOINED: { actions: "applyPlayerJoined" },
         LOBBY_READY: { target: "lobby", actions: "applyLobbyReady" },
-        PLAYER_LEFT: { actions: assign({ toast: "Opponent disconnected." }) },
+        PLAYER_LEFT: { actions: () => toast("Opponent disconnected.") },
         RESET: { target: "landing", actions: "resetAndDisconnect" },
       },
     },
 
     spectating: {
       on: {
-        PLAYER_LEFT: { actions: assign({ toast: "A player disconnected." }) },
+        PLAYER_LEFT: { actions: () => toast("A player disconnected.") },
         RESET: { target: "landing", actions: "resetAndDisconnect" },
       },
     },
@@ -548,7 +538,7 @@ export const multiplayerMachine = setup({
         GAME_START: { target: "playing", actions: "applyGameStart" },
         PLAYER_LEFT: {
           target: "invite",
-          actions: assign({ toast: "Opponent disconnected." }),
+          actions: () => toast("Opponent disconnected."),
         },
         RESET: { target: "landing", actions: "resetAndDisconnect" },
       },
@@ -559,7 +549,7 @@ export const multiplayerMachine = setup({
       on: {
         PLAYER_LEFT: {
           target: "invite",
-          actions: assign({ toast: "Opponent disconnected." }),
+          actions: () => toast("Opponent disconnected."),
         },
         PLAYER_HOLSTERED: { actions: "applyHolsteredToast" },
         RESET: { target: "landing", actions: "resetAndDisconnect" },

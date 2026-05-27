@@ -1,15 +1,15 @@
 export type Phase =
-  | 'landing'
-  | 'invite'
-  | 'lobby'
-  | 'holster'
-  | 'arming'
-  | 'drawing'
-  | 'result'
-  | 'gameover';
+  | "landing"
+  | "invite"
+  | "lobby"
+  | "holster"
+  | "arming"
+  | "drawing"
+  | "result"
+  | "gameover";
 
-export type HolsterStyle = 'buzzer' | 'glow' | 'ring';
-export type TimingMode = 'fast' | 'random' | 'slow';
+export type HolsterStyle = "buzzer" | "glow" | "ring";
+export type TimingMode = "fast" | "random" | "slow";
 
 export interface Player {
   name: string;
@@ -36,7 +36,7 @@ export interface Shot {
 
 export interface RoundRecord {
   round: number;
-  winner: 'p1' | 'p2' | null;
+  winner: "p1" | "p2" | null;
   p1Shot: Shot | null;
   p2Shot: Shot | null;
   damage: number;
@@ -53,12 +53,11 @@ export interface GameState {
   shots: { p1: Shot | null; p2: Shot | null };
   hudFlash: { p1: boolean; p2: boolean };
   holsterArmed: boolean;
-  toast: string | null;
   vsBot: boolean;
   spectators: number;
   muzzleFlash: boolean;
   startingHp: number;
-  myRole: 'p1' | 'p2' | 'spectator' | null;
+  myRole: "p1" | "p2" | "spectator" | null;
 }
 
 export interface GameActions {
