@@ -10,17 +10,27 @@ export function ResultOverlay({ state }: ResultOverlayProps) {
   const last = state.history[state.history.length - 1];
   if (!last) return null;
 
-  const { winner, damage, p1Shot, p2Shot } = last;
-  const winName  = winner === 'p1' ? state.p1.name : state.p2.name;
-  const lossName = winner === 'p1' ? state.p2.name : state.p1.name;
-  const winShot  = winner === 'p1' ? p1Shot : p2Shot;
-  const lossShot = winner === 'p1' ? p2Shot : p1Shot;
+  const { winner, damage } = last;
+
+  // Local player is always left; opponent always right — stable across rounds
+  // Narrow to a player seat; spectators and bot games (myRole=null) fall back to p1
+  const myRole  = (state.myRole === 'p1' || state.myRole === 'p2') ? state.myRole : 'p1';
+  const oppRole = myRole === 'p1' ? 'p2' : 'p1';
+  const myName  = state[myRole].name;
+  const oppName = state[oppRole].name;
+  const myShot  = myRole === 'p1' ? last.p1Shot : last.p2Shot;
+  const oppShot = myRole === 'p1' ? last.p2Shot : last.p1Shot;
+  const iWon    = winner === myRole;
+
+  // Header still reflects the actual winner's reaction time and hit band
+  const winShot = iWon ? myShot : oppShot;
+  const winName = iWon ? myName : oppName;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center z-10 p-6 overflow-y-auto">
       <div className="flex flex-col items-center text-center gap-3 my-auto">
         <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-          {winner === 'p1' ? 'YOU WIN THE ROUND' : 'OPPONENT WINS THE ROUND'}
+          {iWon ? 'YOU WIN THE ROUND' : 'OPPONENT WINS THE ROUND'}
         </span>
 
         <div className="font-sans text-[44px] font-semibold tracking-[-0.02em] leading-none text-qd-ink">
@@ -32,11 +42,11 @@ export function ResultOverlay({ state }: ResultOverlayProps) {
         </span>
 
         <div className="grid mt-3" style={{ gridTemplateColumns: '1fr auto 1fr', gap: '48px', alignItems: 'center', width: '100%', maxWidth: 720 }}>
-          <div className="flex flex-col items-center gap-2">
-            <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">{winName}</span>
-            <TargetSvg size={120} hit={winShot ? hitInViewBox(winShot) : null}/>
+          <div className={`flex flex-col items-center gap-2${!iWon ? ' opacity-55' : ''}`}>
+            <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">{myName}</span>
+            <TargetSvg size={120} hit={myShot ? hitInViewBox(myShot) : null}/>
             <span className="font-mono text-[9px] tracking-[0.12em] uppercase text-qd-ink-3">
-              {winShot ? `${(winShot.reactionMs / 1000).toFixed(3)}s · hit` : 'no shot'}
+              {myShot ? `${(myShot.reactionMs / 1000).toFixed(3)}s · ${iWon ? 'hit' : 'too slow'}` : 'no shot'}
             </span>
           </div>
 
@@ -45,11 +55,11 @@ export function ResultOverlay({ state }: ResultOverlayProps) {
             <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">Damage</span>
           </div>
 
-          <div className="flex flex-col items-center gap-2 opacity-55">
-            <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">{lossName}</span>
-            <TargetSvg size={120} hit={lossShot ? hitInViewBox(lossShot) : null}/>
+          <div className={`flex flex-col items-center gap-2${iWon ? ' opacity-55' : ''}`}>
+            <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">{oppName}</span>
+            <TargetSvg size={120} hit={oppShot ? hitInViewBox(oppShot) : null}/>
             <span className="font-mono text-[9px] tracking-[0.12em] uppercase text-qd-ink-3">
-              {lossShot ? `${(lossShot.reactionMs / 1000).toFixed(3)}s · too slow` : 'no shot'}
+              {oppShot ? `${(oppShot.reactionMs / 1000).toFixed(3)}s · ${iWon ? 'too slow' : 'hit'}` : 'no shot'}
             </span>
           </div>
         </div>
