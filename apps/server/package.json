@@ -10,7 +10,8 @@
   "dependencies": {
     "@quickdraw/game-core": "workspace:*",
     "socket.io": "^4.8.3",
-    "tsx": "^4.19.2"
+    "tsx": "^4.19.2",
+    "xstate": "^5.31.1"
   },
   "devDependencies": {
     "@types/node": "^20",

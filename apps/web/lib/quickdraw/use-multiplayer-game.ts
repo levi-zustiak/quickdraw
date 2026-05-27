@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Phase, Player, Target, Shot, RoundRecord, GameState, GameActions } from '@quickdraw/game-core';
-import { makeRoomCode, computeDamage } from '@quickdraw/game-core';
-import { getSocket, clockOffsetMs } from './socket-client';
+import { useEffect, useCallback, useRef } from 'react';
+import { useMachine } from '@xstate/react';
+import type { GameState, GameActions } from '@quickdraw/game-core';
+import { getSocket } from './socket-client';
+import { multiplayerMachine } from './machines/multiplayer-machine';
 
 interface MultiplayerGameOptions {
   startingHp?: number;
@@ -11,193 +12,85 @@ interface MultiplayerGameOptions {
 
 export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: GameState; actions: GameActions } {
   const startingHp = opts.startingHp ?? 100;
+  const socket = getSocket();
 
-  const [phase, setPhase] = useState<Phase>('landing');
-  const [roomCode, setRoomCode] = useState('');
-  const [p1, setP1] = useState<Player>({ name: 'YOU', hp: startingHp, ready: false, wins: 0 });
-  const [p2, setP2] = useState<Player>({ name: 'WAITING…', hp: startingHp, ready: false, wins: 0 });
-  const [round, setRound] = useState(0);
-  const [history, setHistory] = useState<RoundRecord[]>([]);
-  const [target, setTarget] = useState<Target | null>(null);
-  const [shots, setShots] = useState<{ p1: Shot | null; p2: Shot | null }>({ p1: null, p2: null });
-  const [hudFlash, setHudFlash] = useState({ p1: false, p2: false });
-  const [holsterArmed, setHolsterArmed] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-  const [muzzleFlash, setMuzzleFlash] = useState(false);
-  const [myRole, setMyRole] = useState<'p1' | 'p2' | 'spectator' | null>(null);
-  const [spectators, setSpectators] = useState(0);
+  const [machineState, send] = useMachine(multiplayerMachine, {
+    input: { socket, startingHp },
+  });
 
-  const myRoleRef = useRef<'p1' | 'p2' | 'spectator' | null>(null);
-  const currentRoomRef = useRef<string>('');
-  const targetSpawnedAtRef = useRef<number>(0);
-  const targetRef = useRef<Target | null>(null);
-  const roundRef = useRef<number>(0);
-  const targetSpawnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ctx = machineState.context;
 
-  const showToast = useCallback((msg: string, durationMs = 2000) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), durationMs);
-  }, []);
-
+  // Bridge socket events → machine events
   useEffect(() => {
-    const socket = getSocket();
-
-    socket.on('joined', ({ role, roomCode: rc }) => {
-      console.log(`[ws] joined  role=${role} room=${rc}`);
-      myRoleRef.current = role;
-      setMyRole(role);
-      currentRoomRef.current = rc;
-      if (role === 'spectator') setRoomCode(rc);
+    socket.on('joined', ({ role, roomCode }) => {
+      console.log(`[ws] joined  role=${role} room=${roomCode}`);
+      send({ type: 'JOINED', role, roomCode });
     });
 
-    socket.on('game-snapshot', ({ phase: p, p1Name, p2Name, p1Hp, p2Hp, p1Ready, p2Ready, round: r, spectatorCount }) => {
-      setP1({ name: p1Name.toUpperCase(), hp: p1Hp, ready: p1Ready, wins: 0 });
-      setP2({ name: p2Name.toUpperCase(), hp: p2Hp, ready: p2Ready, wins: 0 });
-      setRound(r);
-      roundRef.current = r;
-      setSpectators(spectatorCount);
-      setPhase(p as Phase);
+    socket.on('game-snapshot', (payload) => {
+      send({ type: 'GAME_SNAPSHOT', ...payload });
     });
 
     socket.on('spectator-count', ({ count }) => {
-      setSpectators(count);
+      send({ type: 'SPECTATOR_COUNT', count });
     });
 
     socket.on('join-error', ({ message }) => {
       console.log(`[ws] join-error  message="${message}"`);
-      showToast(message, 3000);
-      setPhase('landing');
+      send({ type: 'JOIN_ERROR', message });
     });
 
-    socket.on('player-joined', ({ name }) => {
+    socket.on('player-joined', ({ name, role }) => {
       console.log(`[ws] player-joined  name="${name}"`);
-      setP2((p) => ({ ...p, name: name.toUpperCase() }));
-      showToast('Opponent joined!', 1800);
+      send({ type: 'PLAYER_JOINED', name, role });
     });
 
-    socket.on('lobby-ready', ({ p1Name, p2Name, round: r }) => {
-      console.log(`[ws] lobby-ready  p1="${p1Name}" p2="${p2Name}" round=${r}`);
-      setP1((p) => ({ ...p, name: p1Name.toUpperCase(), hp: startingHp, ready: false }));
-      setP2((p) => ({ ...p, name: (p2Name ?? 'OPPONENT').toUpperCase(), hp: startingHp, ready: false }));
-      setRound(r);
-      roundRef.current = r;
-      setPhase('lobby');
+    socket.on('lobby-ready', (payload) => {
+      console.log(`[ws] lobby-ready  p1="${payload.p1Name}" p2="${payload.p2Name}"`);
+      send({ type: 'LOBBY_READY', ...payload });
     });
 
-    socket.on('game-start', ({ round: r }) => {
-      console.log(`[ws] game-start  round=${r}`);
-      if (targetSpawnTimerRef.current) {
-        clearTimeout(targetSpawnTimerRef.current);
-        targetSpawnTimerRef.current = null;
-      }
-      setRound(r);
-      roundRef.current = r;
-      setShots({ p1: null, p2: null });
-      setTarget(null);
-      targetRef.current = null;
-      setHolsterArmed(false);
-      setPhase('holster');
+    socket.on('game-start', ({ round }) => {
+      console.log(`[ws] game-start  round=${round}`);
+      send({ type: 'GAME_START', round });
     });
 
-    socket.on('player-holstered', ({ role }: { role: 'p1' | 'p2' }) => {
+    socket.on('player-holstered', ({ role }) => {
       console.log(`[ws] player-holstered  role=${role}`);
-      if (role !== myRoleRef.current) showToast('Opponent in holster — step up!', 1800);
+      send({ type: 'PLAYER_HOLSTERED', role });
     });
 
-    socket.on('player-ready', ({ role }: { role: 'p1' | 'p2' }) => {
+    socket.on('player-ready', ({ role }) => {
       console.log(`[ws] player-ready  role=${role}`);
-      if (role === 'p1') setP1((p) => ({ ...p, ready: true }));
-      else setP2((p) => ({ ...p, ready: true }));
+      send({ type: 'PLAYER_READY', role });
     });
 
-    socket.on('player-unready', ({ role }: { role: 'p1' | 'p2' }) => {
+    socket.on('player-unready', ({ role }) => {
       console.log(`[ws] player-unready  role=${role}`);
-      if (role === 'p1') setP1((p) => ({ ...p, ready: false }));
-      else setP2((p) => ({ ...p, ready: false }));
+      send({ type: 'PLAYER_UNREADY', role });
     });
 
-    socket.on('false-start', ({ by }: { by: 'p1' | 'p2' }) => {
+    socket.on('false-start', ({ by }) => {
       console.log(`[ws] false-start  by=${by}`);
-      if (targetSpawnTimerRef.current) {
-        clearTimeout(targetSpawnTimerRef.current);
-        targetSpawnTimerRef.current = null;
-      }
-      setTarget(null);
-      targetRef.current = null;
-      setHolsterArmed(false);
-      setPhase('holster');
-      showToast(by === myRoleRef.current ? 'False start! Re-holster when ready…' : 'Opponent flinched! Holster up again…', 2400);
+      send({ type: 'FALSE_START', by });
     });
 
-    socket.on('target-spawn', ({ armingDelayMs, serverSpawnAt }) => {
-      setPhase('arming');
-
-      if (targetSpawnTimerRef.current) clearTimeout(targetSpawnTimerRef.current);
-      const delay = serverSpawnAt - (Date.now() + clockOffsetMs);
-      targetSpawnTimerRef.current = setTimeout(() => {
-        targetSpawnTimerRef.current = null;
-        const stage = document.querySelector('[data-qd-stage]');
-        if (!stage) return;
-        const rect = stage.getBoundingClientRect();
-        const size = Math.max(120, Math.min(200, Math.min(rect.width, rect.height) * 0.35));
-        const padX = size / 2 + 12;
-        const minY = 100 + size / 2;
-        const maxY = rect.height - 170 - size / 2;
-        const x = padX + Math.random() * Math.max(0, rect.width - padX * 2);
-        const y = minY + Math.random() * Math.max(0, maxY - minY);
-        const spawnedAt = performance.now();
-        targetSpawnedAtRef.current = spawnedAt;
-        const t: Target = { x, y, size, spawnedAt };
-        setTarget(t);
-        targetRef.current = t;
-        setPhase('drawing');
-      }, Math.max(0, delay));
+    socket.on('target-spawn', (payload) => {
+      send({ type: 'TARGET_SPAWN', ...payload });
     });
 
-    socket.on('round-result', ({ winner, p1Shot, p2Shot, damage, p1Hp, p2Hp }: { winner: 'p1' | 'p2' | null; p1Shot: Shot | null; p2Shot: Shot | null; damage: number; p1Hp: number; p2Hp: number }) => {
-      console.log(`[ws] round-result  winner=${winner} damage=${damage} p1Hp=${p1Hp} p2Hp=${p2Hp}`);
-      setShots({ p1: p1Shot, p2: p2Shot });
-      setP1((p) => ({ ...p, hp: p1Hp, wins: winner === 'p1' ? p.wins + 1 : p.wins }));
-      setP2((p) => ({ ...p, hp: p2Hp, wins: winner === 'p2' ? p.wins + 1 : p.wins }));
-      setHudFlash({ p1: winner === 'p2', p2: winner === 'p1' });
-      setHistory((h) => [...h, {
-        round: roundRef.current,
-        winner,
-        p1Shot,
-        p2Shot,
-        damage,
-      }]);
-      setPhase('result');
-      setTimeout(() => setHudFlash({ p1: false, p2: false }), 600);
-
-      setTimeout(() => {
-        if (p1Hp <= 0 || p2Hp <= 0) {
-          setPhase('gameover');
-        } else {
-          const sock = getSocket();
-          sock.emit('request-next-round', { roomCode: currentRoomRef.current });
-        }
-      }, 3500);
+    socket.on('round-result', (payload) => {
+      console.log(`[ws] round-result  winner=${payload.winner} p1Hp=${payload.p1Hp} p2Hp=${payload.p2Hp}`);
+      send({ type: 'ROUND_RESULT', ...payload });
     });
 
-    socket.on('next-round', ({ round: r }) => {
-      if (targetSpawnTimerRef.current) {
-        clearTimeout(targetSpawnTimerRef.current);
-        targetSpawnTimerRef.current = null;
-      }
-      setRound(r);
-      roundRef.current = r;
-      setShots({ p1: null, p2: null });
-      setTarget(null);
-      targetRef.current = null;
-      setHolsterArmed(false);
-      setPhase('holster');
+    socket.on('next-round', ({ round }) => {
+      send({ type: 'NEXT_ROUND', round });
     });
 
     socket.on('player-left', () => {
       console.log('[ws] player-left');
-      showToast('Opponent disconnected.', 3000);
-      setPhase('invite');
+      send({ type: 'PLAYER_LEFT' });
     });
 
     return () => {
@@ -217,128 +110,111 @@ export function useMultiplayerGame(opts: MultiplayerGameOptions = {}): { state: 
       socket.off('next-round');
       socket.off('player-left');
     };
-  }, [startingHp, showToast]);
+  }, [socket, send]);
 
-  function normalizeRoomCode(raw: string): string {
-    return raw.replace(/[·.]/g, '').toUpperCase();
-  }
+  // Dev shortcut: backtick triggers dev-force-start
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '`') return;
+      const stage = document.querySelector('[data-qd-stage]');
+      const rect = stage?.getBoundingClientRect();
+      socket.emit('dev-force-start', {
+        roomCode: ctx.roomCode,
+        stageWidth: rect?.width ?? 1280,
+        stageHeight: rect?.height ?? 720,
+      });
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [socket, ctx.roomCode]);
 
-  const joinRoom = useCallback((code: string, name: string) => {
-    const normalizedCode = normalizeRoomCode(code);
-    console.log(`[ws] emit join-room (join)  room=${normalizedCode} name="${name}"`);
-    const socket = getSocket();
-    if (!socket.connected) socket.connect();
-    socket.emit('join-room', { roomCode: normalizedCode, playerName: name.toUpperCase() });
-  }, []);
+  // Toast auto-clear
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!ctx.toast) return;
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      send({ type: 'SET_TOAST', msg: null });
+    }, 2000);
+    return () => { if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current); };
+  }, [ctx.toast, send]);
+
+  const phase = (() => {
+    const v = machineState.value;
+    if (v === 'connecting') return 'landing' as const;
+    if (typeof v === 'string') return v as GameState['phase'];
+    if ('playing' in v) return v.playing as GameState['phase'];
+    return 'landing' as const;
+  })();
 
   const createRoom = useCallback((name = 'YOU', roomCode?: string) => {
-    const code = roomCode ?? makeRoomCode();
-    setRoomCode(code);
-    currentRoomRef.current = code;
-    setP1({ name: name.toUpperCase(), hp: startingHp, ready: false, wins: 0 });
-    setP2({ name: 'WAITING…', hp: startingHp, ready: false, wins: 0 });
-    setRound(0);
-    setHistory([]);
-    setPhase('invite');
+    send({ type: 'CREATE_ROOM', name, roomCode });
+  }, [send]);
 
-    const socket = getSocket();
-    if (!socket.connected) socket.connect();
-    socket.emit('join-room', { roomCode: code, playerName: name.toUpperCase() });
-  }, [startingHp]);
+  const joinRoom = useCallback((code: string, name: string) => {
+    send({ type: 'JOIN_ROOM', code, name });
+  }, [send]);
 
   const startVsBot = useCallback(() => {
-    // No-op in multiplayer mode — caller should switch to bot hook
+    // No-op: caller switches to bot hook
   }, []);
 
   const readyUp = useCallback(() => {
-    const role = myRoleRef.current;
-    if (!role) return;
-    if (role === 'p1') setP1((p) => ({ ...p, ready: true }));
-    else setP2((p) => ({ ...p, ready: true }));
-    const socket = getSocket();
-    socket.emit('ready-up', { roomCode: currentRoomRef.current });
-  }, []);
+    send({ type: 'READY_UP' });
+  }, [send]);
 
   const unready = useCallback(() => {
-    const role = myRoleRef.current;
-    if (!role) return;
-    if (role === 'p1') setP1((p) => ({ ...p, ready: false }));
-    else setP2((p) => ({ ...p, ready: false }));
-    const socket = getSocket();
-    socket.emit('unready', { roomCode: currentRoomRef.current });
-  }, []);
+    send({ type: 'UNREADY' });
+  }, [send]);
 
   const armHolster = useCallback(() => {
-    if (phase !== 'holster') return;
-    if (holsterArmed) return;
-    if (!currentRoomRef.current) return;
-    setHolsterArmed(true);
-    const socket = getSocket();
-    socket.emit('arm-holster', { roomCode: currentRoomRef.current });
-  }, [phase, holsterArmed]);
+    const stage = document.querySelector('[data-qd-stage]');
+    const rect = stage?.getBoundingClientRect();
+    send({ type: 'ARM_HOLSTER', stageWidth: rect?.width ?? 1280, stageHeight: rect?.height ?? 720 });
+  }, [send]);
 
   const leaveHolster = useCallback(() => {
-    if (phase !== 'holster' && phase !== 'arming') return;
-    setHolsterArmed(false);
-    const socket = getSocket();
-    socket.emit('leave-holster', { roomCode: currentRoomRef.current });
-    if (phase === 'arming') setPhase('holster');
-  }, [phase]);
+    send({ type: 'LEAVE_HOLSTER' });
+  }, [send]);
 
   const fire = useCallback((clientX: number, clientY: number) => {
     if (phase === 'arming') { leaveHolster(); return; }
-    const t = targetRef.current;
+    const t = ctx.target;
     if (phase !== 'drawing' || !t) return;
-
-    const stage = document.querySelector('[data-qd-stage]');
-    if (!stage) return;
-    const rect = stage.getBoundingClientRect();
-    const dx = clientX - rect.left - t.x;
-    const dy = clientY - rect.top - t.y;
-    const reactionMs = performance.now() - targetSpawnedAtRef.current;
-
-    setMuzzleFlash(true);
-    setTimeout(() => setMuzzleFlash(false), 400);
-
-    const socket = getSocket();
-    socket.emit('client-shot', {
-      roomCode: currentRoomRef.current,
-      reactionMs,
-      dx,
-      dy,
-      targetSize: t.size,
-    });
-  }, [phase, leaveHolster]);
+    send({ type: 'FIRE', clientX, clientY, target: t, spawnedAt: t.spawnedAt });
+  }, [phase, ctx.target, send, leaveHolster]);
 
   const rematch = useCallback(() => {
-    setP1((p) => ({ ...p, hp: startingHp, ready: true, wins: 0 }));
-    setP2((p) => ({ ...p, hp: startingHp, ready: true, wins: 0 }));
-    setHistory([]);
-    setShots({ p1: null, p2: null });
-    setTarget(null);
-    setHolsterArmed(false);
-    const socket = getSocket();
-    socket.emit('rematch', { roomCode: currentRoomRef.current });
-  }, [startingHp]);
+    send({ type: 'REMATCH' });
+  }, [send]);
 
   const reset = useCallback(() => {
-    setPhase('landing');
-    setRoomCode('');
-    setP1({ name: 'YOU', hp: startingHp, ready: false, wins: 0 });
-    setP2({ name: 'WAITING…', hp: startingHp, ready: false, wins: 0 });
-    setRound(0);
-    setHistory([]);
-    setShots({ p1: null, p2: null });
-    setTarget(null);
-    setHolsterArmed(false);
-    const socket = getSocket();
-    socket.disconnect();
-  }, [startingHp]);
+    send({ type: 'RESET' });
+  }, [send]);
+
+  const setToast = useCallback((msg: string | null) => {
+    send({ type: 'SET_TOAST', msg });
+  }, [send]);
 
   return {
     state: {
-      phase, roomCode, p1, p2, round, history, target, shots,
-      hudFlash, holsterArmed, toast, vsBot: false, spectators, muzzleFlash, startingHp, myRole,
+      phase,
+      roomCode: ctx.roomCode,
+      p1: ctx.p1,
+      p2: ctx.p2,
+      round: ctx.round,
+      history: ctx.history,
+      target: ctx.target,
+      shots: ctx.shots,
+      hudFlash: ctx.hudFlash,
+      holsterArmed: ctx.holsterArmed,
+      toast: ctx.toast,
+      vsBot: false,
+      spectators: ctx.spectators,
+      muzzleFlash: ctx.muzzleFlash,
+      startingHp,
+      myRole: ctx.myRole,
     },
     actions: {
       createRoom, joinRoom, startVsBot, readyUp, unready, armHolster, leaveHolster, fire, rematch, reset, setToast,

@@ -12,7 +12,7 @@ export interface ServerToClientEvents {
   'player-left': (payload: Record<string, never>) => void;
   'lobby-ready': (payload: { p1Name: string; p2Name: string | null; round: number }) => void;
   'game-start': (payload: { round: number }) => void;
-  'target-spawn': (payload: { armingDelayMs: number; serverSpawnAt: number }) => void;
+  'target-spawn': (payload: { armingDelayMs: number; serverSpawnAt: number; spawnX: number; spawnY: number; targetSize: number; minStageWidth: number; minStageHeight: number }) => void;
   'round-result': (payload: {
     winner: 'p1' | 'p2';
     p1Shot: Shot | null;
@@ -30,13 +30,14 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   'join-room': (payload: { roomCode: string; playerName: string }) => void;
-  'arm-holster': (payload: { roomCode: string }) => void;
+  'arm-holster': (payload: { roomCode: string; stageWidth: number; stageHeight: number }) => void;
   'client-shot': (payload: { roomCode: string; reactionMs: number; dx: number; dy: number; targetSize: number }) => void;
   'request-next-round': (payload: { roomCode: string }) => void;
   'ready-up': (payload: { roomCode: string }) => void;
   'unready': (payload: { roomCode: string }) => void;
   'rematch': (payload: { roomCode: string }) => void;
   'leave-holster': (payload: { roomCode: string }) => void;
+  'dev-force-start': (payload: { roomCode: string; stageWidth: number; stageHeight: number }) => void;
   'time-sync': (callback: (serverTime: number) => void) => void;
 }
 

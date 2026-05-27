@@ -1,8 +1,5 @@
 import type { Server, Socket } from 'socket.io';
-import type { Shot } from '@quickdraw/game-core';
-import { rollArmingDelay, computeDamage, isHit } from '@quickdraw/game-core';
 import type { RoomManager } from './room-manager';
-import { STARTING_HP } from './room-manager';
 
 export class GameLoop {
   constructor(
@@ -17,83 +14,38 @@ export class GameLoop {
       callback(Date.now());
     });
 
+    socket.on('dev-force-start', ({ roomCode, stageWidth, stageHeight }: { roomCode: string; stageWidth: number; stageHeight: number }) => {
+      if (process.env.NODE_ENV === 'production') return;
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      console.log(`[ws] dev-force-start  room=${roomCode} sid=${sid}`);
+      actor.send({ type: 'DEV_FORCE_START', stageWidth, stageHeight });
+    });
+
     socket.on('ready-up', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'lobby') return;
-
-      const isP1 = room.p1SocketId === socket.id;
-      const role = isP1 ? 'p1' as const : 'p2' as const;
-      if (isP1) room.p1Ready = true;
-      else room.p2Ready = true;
-
-      console.log(`[ws] ready-up  sid=${sid} room=${roomCode} role=${role} p1Ready=${room.p1Ready} p2Ready=${room.p2Ready}`);
-      socket.to(roomCode).emit('player-ready', { role });
-
-      if (room.p1Ready && room.p2Ready) {
-        room.phase = 'holster';
-        console.log(`[ws] game-start  room=${roomCode} round=${room.round}`);
-        this.io.to(roomCode).emit('game-start', { round: room.round });
-      }
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      console.log(`[ws] ready-up  sid=${sid} room=${roomCode}`);
+      actor.send({ type: 'READY_UP', socketId: socket.id });
     });
 
     socket.on('unready', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'lobby') return;
-
-      const isP1 = room.p1SocketId === socket.id;
-      const role = isP1 ? 'p1' as const : 'p2' as const;
-      if (isP1) room.p1Ready = false;
-      else room.p2Ready = false;
-
-      console.log(`[ws] unready  sid=${sid} room=${roomCode} role=${role}`);
-      socket.to(roomCode).emit('player-unready', { role });
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      console.log(`[ws] unready  sid=${sid} room=${roomCode}`);
+      actor.send({ type: 'UNREADY', socketId: socket.id });
     });
 
-    socket.on('arm-holster', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'holster') return;
-
-      const isP1 = room.p1SocketId === socket.id;
-      if (isP1) room.p1Holstered = true;
-      else room.p2Holstered = true;
-
-      console.log(`[ws] arm-holster  sid=${sid} room=${roomCode} role=${isP1 ? 'p1' : 'p2'} p1=${room.p1Holstered} p2=${room.p2Holstered}`);
-      socket.to(roomCode).emit('player-holstered', { role: isP1 ? 'p1' as const : 'p2' as const });
-
-      if (!room.p1Holstered || !room.p2Holstered) return;
-
-      room.phase = 'arming';
-      const armingDelayMs = rollArmingDelay('random');
-      room.armingDelayMs = armingDelayMs;
-      const serverSpawnAt = Date.now() + armingDelayMs;
-      room.targetSpawnedAt = serverSpawnAt;
-
-      console.log(`[ws] both-holstered  room=${roomCode} armingDelayMs=${armingDelayMs}`);
-      this.io.to(roomCode).emit('target-spawn', { armingDelayMs, serverSpawnAt });
-
-      setTimeout(() => {
-        const r = this.rooms.getRoom(roomCode);
-        if (r && r.phase === 'arming' && r.targetSpawnedAt === serverSpawnAt) r.phase = 'drawing';
-      }, armingDelayMs);
+    socket.on('arm-holster', ({ roomCode, stageWidth, stageHeight }: { roomCode: string; stageWidth: number; stageHeight: number }) => {
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      actor.send({ type: 'ARM_HOLSTER', socketId: socket.id, stageWidth, stageHeight });
     });
 
     socket.on('leave-holster', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room) return;
-
-      const isP1 = room.p1SocketId === socket.id;
-
-      if (room.phase === 'holster') {
-        if (isP1) room.p1Holstered = false;
-        else room.p2Holstered = false;
-        console.log(`[ws] leave-holster  sid=${sid} room=${roomCode} role=${isP1 ? 'p1' : 'p2'}`);
-      } else if (room.phase === 'arming') {
-        room.phase = 'holster';
-        room.p1Holstered = false;
-        room.p2Holstered = false;
-        console.log(`[ws] false-start  sid=${sid} room=${roomCode} by=${isP1 ? 'p1' : 'p2'}`);
-        this.io.to(roomCode).emit('false-start', { by: isP1 ? 'p1' as const : 'p2' as const });
-      }
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      actor.send({ type: 'LEAVE_HOLSTER', socketId: socket.id });
     });
 
     socket.on('client-shot', ({ roomCode, reactionMs, dx, dy, targetSize }: {
@@ -103,120 +55,21 @@ export class GameLoop {
       dy: number;
       targetSize: number;
     }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'drawing') return;
-
-      const dist = Math.hypot(dx, dy);
-      const shot: Shot = {
-        reactionMs,
-        dx,
-        dy,
-        dist,
-        damage: computeDamage(dist, targetSize),
-        targetSize,
-      };
-
-      const isP1 = room.p1SocketId === socket.id;
-      if (isP1 && !room.p1Shot) {
-        room.p1Shot = shot;
-      } else if (!isP1 && !room.p2Shot) {
-        room.p2Shot = shot;
-      } else {
-        return;
-      }
-
-      console.log(`[ws] client-shot  sid=${sid} room=${roomCode} role=${isP1 ? 'p1' : 'p2'} reactionMs=${Math.round(reactionMs)} dist=${Math.round(dist)}`);
-
-      const bothShot = room.p1Shot && room.p2Shot;
-      const graceMs = 220;
-
-      if (bothShot) {
-        this.settleRound(roomCode);
-      } else if (isHit(dist, targetSize)) {
-        setTimeout(() => {
-          const current = this.rooms.getRoom(roomCode);
-          if (current && current.phase === 'drawing') {
-            this.settleRound(roomCode);
-          }
-        }, graceMs);
-      }
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      actor.send({ type: 'CLIENT_SHOT', socketId: socket.id, reactionMs, dx, dy, targetSize });
     });
 
     socket.on('request-next-round', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'result') return;
-
-      room.phase = 'holster';
-      room.p1Shot = null;
-      room.p2Shot = null;
-      room.p1Holstered = false;
-      room.p2Holstered = false;
-      room.round += 1;
-      console.log(`[ws] request-next-round  sid=${sid} room=${roomCode} -> round=${room.round}`);
-      this.io.to(roomCode).emit('next-round', { round: room.round });
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      actor.send({ type: 'REQUEST_NEXT_ROUND' });
     });
 
     socket.on('rematch', ({ roomCode }: { roomCode: string }) => {
-      const room = this.rooms.getRoom(roomCode);
-      if (!room || room.phase !== 'gameover') return;
-
-      room.p1Hp = STARTING_HP;
-      room.p2Hp = STARTING_HP;
-      room.p1Shot = null;
-      room.p2Shot = null;
-      room.p1Ready = false;
-      room.p2Ready = false;
-      room.p1Holstered = false;
-      room.p2Holstered = false;
-      room.round = 1;
-      room.phase = 'holster';
-      console.log(`[ws] rematch  sid=${sid} room=${roomCode}`);
-      this.io.to(roomCode).emit('game-start', { round: room.round });
-    });
-  }
-
-  private settleRound(roomCode: string): void {
-    const room = this.rooms.getRoom(roomCode);
-    if (!room || room.phase !== 'drawing') return;
-
-    const { p1Shot, p2Shot } = room;
-
-    const p1Hit = p1Shot ? isHit(p1Shot.dist, p1Shot.targetSize) : false;
-    const p2Hit = p2Shot ? isHit(p2Shot.dist, p2Shot.targetSize) : false;
-
-    let winner: 'p1' | 'p2' | null;
-    let damage: number;
-
-    if (p1Hit && p2Hit) {
-      winner = p1Shot!.reactionMs <= p2Shot!.reactionMs ? 'p1' : 'p2';
-      damage = (winner === 'p1' ? p1Shot! : p2Shot!).damage;
-    } else if (p1Hit) {
-      winner = 'p1';
-      damage = p1Shot!.damage;
-    } else if (p2Hit) {
-      winner = 'p2';
-      damage = p2Shot!.damage;
-    } else {
-      winner = null;
-      damage = 0;
-    }
-
-    if (winner === 'p1') {
-      room.p2Hp = Math.max(0, room.p2Hp - damage);
-    } else if (winner === 'p2') {
-      room.p1Hp = Math.max(0, room.p1Hp - damage);
-    }
-
-    room.phase = (room.p1Hp <= 0 || room.p2Hp <= 0) ? 'gameover' : 'result';
-
-    console.log(`[ws] round-result  room=${roomCode} winner=${winner} damage=${Math.round(damage)} p1Hp=${room.p1Hp} p2Hp=${room.p2Hp}`);
-    this.io.to(roomCode).emit('round-result', {
-      winner,
-      p1Shot,
-      p2Shot,
-      damage,
-      p1Hp: room.p1Hp,
-      p2Hp: room.p2Hp,
+      const actor = this.rooms.getActor(roomCode);
+      if (!actor) return;
+      actor.send({ type: 'REMATCH' });
     });
   }
 }

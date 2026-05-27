@@ -2,6 +2,7 @@ import type { Shot } from './types';
 export declare function makeRoomCode(): string;
 export declare function computeDamage(distFromCenter: number, targetSize?: number): number;
 export declare function damageBand(dist: number, targetSize?: number): string;
+export declare function isHit(dist: number, targetSize: number): boolean;
 export declare function hitInViewBox(shot: Shot): {
     x: number;
     y: number;

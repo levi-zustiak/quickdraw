@@ -1,124 +1,95 @@
-import type { Shot } from '@quickdraw/game-core';
+import { createActor } from 'xstate';
+import type { Actor } from 'xstate';
+import { roomMachine, STARTING_HP } from './room-machine';
+import type { RoomContext, IoRef } from './room-machine';
 
-export interface RoomState {
-  p1SocketId: string;
-  p1Name: string;
-  p2SocketId: string | null;
-  p2Name: string | null;
-  phase: 'waiting' | 'lobby' | 'holster' | 'arming' | 'drawing' | 'result' | 'gameover';
-  round: number;
-  p1Hp: number;
-  p2Hp: number;
-  p1Ready: boolean;
-  p2Ready: boolean;
-  p1Holstered: boolean;
-  p2Holstered: boolean;
-  armingDelayMs: number;
-  targetSpawnedAt: number;
-  p1Shot: Shot | null;
-  p2Shot: Shot | null;
-  spectatorSocketIds: Set<string>;
-}
+export { STARTING_HP };
 
-export const STARTING_HP = 100;
+export type RoomActor = Actor<typeof roomMachine>;
 
 export class RoomManager {
-  private rooms = new Map<string, RoomState>();
+  private actors = new Map<string, RoomActor>();
 
   joinRoom(
+    io: IoRef,
     roomCode: string,
     socketId: string,
     playerName: string,
-  ): { role: 'p1' | 'p2'; room: RoomState } | { error: string } {
-    let room = this.rooms.get(roomCode);
+  ): { role: 'p1'; actor: RoomActor } | { role: 'p2'; actor: RoomActor } | { error: string } {
+    let actor = this.actors.get(roomCode);
 
-    if (!room) {
-      room = {
-        p1SocketId: socketId,
-        p1Name: playerName,
-        p2SocketId: null,
-        p2Name: null,
-        phase: 'waiting',
-        round: 0,
-        p1Hp: STARTING_HP,
-        p2Hp: STARTING_HP,
-        p1Ready: false,
-        p2Ready: false,
-        p1Holstered: false,
-        p2Holstered: false,
-        armingDelayMs: 0,
-        targetSpawnedAt: 0,
-        p1Shot: null,
-        p2Shot: null,
-        spectatorSocketIds: new Set(),
-      };
-      this.rooms.set(roomCode, room);
-      return { role: 'p1', room };
+    if (!actor) {
+      actor = createActor(roomMachine, {
+        input: { io, roomCode, p1SocketId: socketId, p1Name: playerName },
+      });
+      actor.start();
+      this.actors.set(roomCode, actor);
+      return { role: 'p1', actor };
     }
 
-    if (room.p2SocketId) {
+    const ctx = actor.getSnapshot().context;
+    if (ctx.p2SocketId !== null) {
       return { error: 'Room is full' };
     }
 
-    room.p2SocketId = socketId;
-    room.p2Name = playerName;
-    room.phase = 'lobby';
-    return { role: 'p2', room };
+    // Caller must call actor.send('PLAYER_JOINED') after socket.join(roomCode)
+    // so the lobby-ready broadcast reaches P2's socket.
+    return { role: 'p2', actor };
   }
 
-  joinAsSpectator(roomCode: string, socketId: string): { room: RoomState } | { error: string } {
-    const room = this.rooms.get(roomCode);
-    if (!room || room.phase === 'waiting') return { error: 'Room not found' };
-    room.spectatorSocketIds.add(socketId);
-    return { room };
+  joinAsSpectator(roomCode: string, socketId: string): { context: RoomContext } | { error: string } {
+    const actor = this.actors.get(roomCode);
+    if (!actor) return { error: 'Room not found' };
+    const ctx = actor.getSnapshot().context;
+    if (!ctx.p2SocketId) return { error: 'Room not found' };
+    ctx.spectatorSocketIds.add(socketId);
+    return { context: ctx };
   }
 
   leaveRoom(socketId: string):
-    | { type: 'player'; roomCode: string; room: RoomState }
+    | { type: 'player'; roomCode: string }
     | { type: 'spectator'; roomCode: string; spectatorCount: number }
     | null {
-    for (const [roomCode, room] of this.rooms) {
-      if (room.spectatorSocketIds.has(socketId)) {
-        room.spectatorSocketIds.delete(socketId);
-        return { type: 'spectator', roomCode, spectatorCount: room.spectatorSocketIds.size };
+    for (const [roomCode, actor] of this.actors) {
+      const ctx = actor.getSnapshot().context;
+
+      if (ctx.spectatorSocketIds.has(socketId)) {
+        ctx.spectatorSocketIds.delete(socketId);
+        return { type: 'spectator', roomCode, spectatorCount: ctx.spectatorSocketIds.size };
       }
-      if (room.p1SocketId === socketId || room.p2SocketId === socketId) {
-        if (room.p1SocketId === socketId) {
-          if (room.p2SocketId) {
-            room.p1SocketId = room.p2SocketId;
-            room.p1Name = room.p2Name ?? 'Player';
-            room.p2SocketId = null;
-            room.p2Name = null;
-            room.phase = 'waiting';
-            room.p1Holstered = false;
-            room.p2Holstered = false;
-          } else {
-            this.rooms.delete(roomCode);
-            return null;
-          }
-        } else {
-          room.p2SocketId = null;
-          room.p2Name = null;
-          room.phase = 'waiting';
-          room.p1Holstered = false;
-          room.p2Holstered = false;
+
+      if (ctx.p1SocketId === socketId || ctx.p2SocketId === socketId) {
+        const isP1 = ctx.p1SocketId === socketId;
+        const hasP2 = !!ctx.p2SocketId;
+
+        if (!hasP2 || (isP1 && !hasP2)) {
+          // Only one player — destroy room
+          actor.stop();
+          this.actors.delete(roomCode);
+          return null;
         }
-        return { type: 'player', roomCode, room };
+
+        actor.send({ type: 'PLAYER_LEFT', socketId });
+
+        // If the machine went back to waiting with no p2, and p1 leaves entirely, clean up
+        const newCtx = actor.getSnapshot().context;
+        if (!newCtx.p2SocketId && newCtx.p1SocketId === socketId) {
+          actor.stop();
+          this.actors.delete(roomCode);
+          return null;
+        }
+
+        return { type: 'player', roomCode };
       }
     }
     return null;
   }
 
-  getRoom(roomCode: string): RoomState | undefined {
-    return this.rooms.get(roomCode);
+  getActor(roomCode: string): RoomActor | undefined {
+    return this.actors.get(roomCode);
   }
 
-  getRoomBySocket(socketId: string): { roomCode: string; room: RoomState } | null {
-    for (const [roomCode, room] of this.rooms) {
-      if (room.p1SocketId === socketId || room.p2SocketId === socketId) {
-        return { roomCode, room };
-      }
-    }
-    return null;
+  getContext(roomCode: string): RoomContext | undefined {
+    return this.actors.get(roomCode)?.getSnapshot().context;
   }
 }

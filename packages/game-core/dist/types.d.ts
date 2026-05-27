@@ -23,7 +23,7 @@ export interface Shot {
 }
 export interface RoundRecord {
     round: number;
-    winner: 'p1' | 'p2';
+    winner: 'p1' | 'p2' | null;
     p1Shot: Shot | null;
     p2Shot: Shot | null;
     damage: number;
@@ -50,11 +50,14 @@ export interface GameState {
     spectators: number;
     muzzleFlash: boolean;
     startingHp: number;
+    myRole: 'p1' | 'p2' | 'spectator' | null;
 }
 export interface GameActions {
-    createRoom: (name?: string) => void;
+    createRoom: (name?: string, roomCode?: string) => void;
+    joinRoom: (code: string, name: string) => void;
     startVsBot: () => void;
     readyUp: () => void;
+    unready: () => void;
     armHolster: () => void;
     leaveHolster: () => void;
     fire: (clientX: number, clientY: number) => void;
