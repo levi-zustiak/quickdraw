@@ -34,6 +34,8 @@ export function GameScreen({
   const heldPointerRef = useRef<number | null>(null);
   const [ringProgress, setRingProgress] = useState(0);
 
+  console.log(target);
+
   const checkHolster = (clientX: number, clientY: number): boolean => {
     const h = holsterRef.current;
     if (!h) return false;
@@ -97,17 +99,9 @@ export function GameScreen({
     !isSpectator && (phase === "holster" || phase === "arming");
 
   return (
-    <div
-      className="flex-1 relative overflow-hidden bg-qd-paper"
-      data-qd-stage
-      onPointerMove={isSpectator ? undefined : onPointerMove}
-      onPointerDown={isSpectator ? undefined : onPointerDown}
-      onPointerUp={isSpectator ? undefined : onPointerUp}
-      onPointerCancel={isSpectator ? undefined : onPointerUp}
-      style={{ touchAction: isSpectator ? undefined : "none" }}
-    >
+    <div className="flex-1 flex flex-col relative overflow-hidden bg-qd-paper">
       {/* HUD */}
-      <div className="absolute top-4 left-5 right-5 flex justify-between items-start gap-6 z-20">
+      <div className="flex justify-between items-start gap-6 p-5 z-20">
         <HpHud player={p1} align="left" hit={hudFlash.p1} max={max} />
         <div className="text-center font-mono shrink-0">
           <div className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
@@ -122,7 +116,7 @@ export function GameScreen({
 
       {/* Steady prompt */}
       {phase === "holster" && (
-        <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-[25] select-none pointer-events-none">
+        <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-25 select-none pointer-events-none">
           <div className="font-sans text-[56px] font-semibold tracking-[-0.02em] leading-none text-qd-ink">
             Steady…
           </div>
@@ -164,30 +158,41 @@ export function GameScreen({
         </div>
       )}
 
-      {/* DRAW! prompt */}
-      {phase === "drawing" && (
-        <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-[25] select-none pointer-events-none">
-          <div
-            className="font-sans font-semibold tracking-[-0.03em] leading-none text-qd-ink qd-draw-animated"
-            style={{ fontSize: 96 }}
-          >
-            DRAW!
+      <div
+        data-qd-stage
+        onPointerMove={isSpectator ? undefined : onPointerMove}
+        onPointerDown={isSpectator ? undefined : onPointerDown}
+        onPointerUp={isSpectator ? undefined : onPointerUp}
+        onPointerCancel={isSpectator ? undefined : onPointerUp}
+        style={{ touchAction: isSpectator ? undefined : "none" }}
+        className="flex-1 flex justify-center items-center"
+      >
+        {/* DRAW! prompt */}
+        {phase === "drawing" && (
+          <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-[25] select-none pointer-events-none">
+            <div
+              className="font-sans font-semibold tracking-[-0.03em] leading-none text-qd-ink qd-draw-animated"
+              style={{ fontSize: 96 }}
+            >
+              DRAW!
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Target */}
-      {phase === "drawing" && target && (
-        <div
-          className="absolute pointer-events-auto cursor-crosshair z-[30] qd-target-animated"
-          style={{
-            left: target.x - target.size / 2,
-            top: target.y - target.size / 2,
-          }}
-        >
-          <TargetSvg size={target.size} />
-        </div>
-      )}
+        {/* Target */}
+        {phase === "drawing" && target && (
+          <div
+            className="absolute z-30"
+            style={{
+              transform: `translate(${target.x}px, ${target.y}px)`,
+            }}
+          >
+            <div className="pointer-events-auto cursor-crosshair qd-target-animated">
+              <TargetSvg size={target.size} />
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Spectator badge */}
       {isSpectator && (
