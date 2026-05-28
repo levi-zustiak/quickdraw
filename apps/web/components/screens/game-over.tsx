@@ -2,6 +2,7 @@ import { damageBand } from '@quickdraw/game-core';
 import type { GameState } from '@quickdraw/game-core';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import { Display, Detail } from '@/components/ui/typography';
 
 interface GameOverScreenProps {
   state: GameState;
@@ -18,23 +19,17 @@ export function GameOverScreen({ state, onRematch, onMenu }: GameOverScreenProps
     <div className="flex-1 relative overflow-hidden bg-qd-paper">
       <div className="absolute inset-0 flex items-center justify-center z-10 p-6 overflow-y-auto">
         <div className="flex flex-col items-center gap-[22px] max-w-[640px] w-full my-auto">
-          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-            DUEL CONCLUDED · {state.history.length} ROUNDS
-          </span>
+          <Detail>DUEL CONCLUDED · {state.history.length} ROUNDS</Detail>
 
-          <h1 className="font-sans text-[56px] font-semibold tracking-[-0.02em] leading-none text-qd-ink">
-            {winName} wins.
-          </h1>
+          <Display className="text-[56px]">{winName} wins.</Display>
 
-          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-            {lossName} eats dirt.
-          </span>
+          <Detail>{lossName} eats dirt.</Detail>
 
           {/* Round breakdown table */}
           <Card data-variant="qd-card" className="w-full mt-1">
             <CardHeader className="flex-row items-center justify-between">
-              <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">Round breakdown</span>
-              <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">{state.history.length} rounds</span>
+              <Detail>Round breakdown</Detail>
+              <Detail>{state.history.length} rounds</Detail>
             </CardHeader>
             <CardContent className="p-0">
               <div className="max-h-[240px] overflow-auto">

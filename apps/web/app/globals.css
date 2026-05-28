@@ -6,16 +6,16 @@
 
 @theme inline {
   /* Quickdraw game palette */
-  --color-qd-paper: #FAFAF8;
-  --color-qd-surface: #FFFFFF;
-  --color-qd-line: #D9D9D6;
-  --color-qd-line-strong: #B8B8B5;
-  --color-qd-ink: #1A1A1A;
-  --color-qd-ink-2: #5A5A5A;
-  --color-qd-ink-3: #8C8C8C;
-  --color-qd-ink-4: #BFBFBC;
-  --color-qd-accent: oklch(0.55 0.05 25);
-  --color-qd-accent-soft: oklch(0.94 0.02 25);
+  --color-qd-paper: #fafaf8;
+  --color-qd-surface: #ffffff;
+  --color-qd-line: #d9d9d6;
+  --color-qd-line-strong: #b8b8b5;
+  --color-qd-ink: #1a1a1a;
+  --color-qd-ink-2: #5a5a5a;
+  --color-qd-ink-3: #8c8c8c;
+  --color-qd-ink-4: #bfbfbc;
+  --color-qd-accent: oklch(0.7363 0.1697 61.12);
+  --color-qd-accent-soft: oklch(0.7363 0.1697 61.12 / 15%);
   --color-qd-win: oklch(0.55 0.04 145);
   --color-qd-win-soft: oklch(0.94 0.025 145);
   --color-background: var(--background);
@@ -52,13 +52,6 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
@@ -137,7 +130,8 @@
   body {
     @apply bg-background text-foreground;
   }
-  button:not(:disabled), [role="button"]:not(:disabled) {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
     cursor: pointer;
   }
   html {
@@ -145,21 +139,31 @@
   }
 }
 
+* {
+  cursor:
+    url("/cursor.svg") 10 10,
+    crosshair;
+}
+
 /* ─── Quickdraw: HP bar stripe fill ────────────────────── */
 .qd-hp-fill {
   height: 100%;
   background: repeating-linear-gradient(
     45deg,
-    #1A1A1A 0, #1A1A1A 4px,
-    #3a3a3a 4px, #3a3a3a 8px
+    #1a1a1a 0,
+    #1a1a1a 4px,
+    #3a3a3a 4px,
+    #3a3a3a 8px
   );
   transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .qd-hp-fill-low {
   background: repeating-linear-gradient(
     45deg,
-    oklch(0.55 0.05 25) 0, oklch(0.55 0.05 25) 4px,
-    oklch(0.45 0.05 25) 4px, oklch(0.45 0.05 25) 8px
+    oklch(0.55 0.05 25) 0,
+    oklch(0.55 0.05 25) 4px,
+    oklch(0.45 0.05 25) 4px,
+    oklch(0.45 0.05 25) 8px
   );
 }
 
@@ -169,45 +173,108 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: linear-gradient(90deg,
-    transparent calc(25% - 0.5px), rgba(0,0,0,0.18) 25%, rgba(0,0,0,0.18) calc(25% + 0.5px), transparent calc(25% + 0.5px),
-    transparent calc(50% - 0.5px), rgba(0,0,0,0.18) 50%, rgba(0,0,0,0.18) calc(50% + 0.5px), transparent calc(50% + 0.5px),
-    transparent calc(75% - 0.5px), rgba(0,0,0,0.18) 75%, rgba(0,0,0,0.18) calc(75% + 0.5px), transparent calc(75% + 0.5px)
+  background-image: linear-gradient(
+    90deg,
+    transparent calc(25% - 0.5px),
+    rgba(0, 0, 0, 0.18) 25%,
+    rgba(0, 0, 0, 0.18) calc(25% + 0.5px),
+    transparent calc(25% + 0.5px),
+    transparent calc(50% - 0.5px),
+    rgba(0, 0, 0, 0.18) 50%,
+    rgba(0, 0, 0, 0.18) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px),
+    transparent calc(75% - 0.5px),
+    rgba(0, 0, 0, 0.18) 75%,
+    rgba(0, 0, 0, 0.18) calc(75% + 0.5px),
+    transparent calc(75% + 0.5px)
   );
 }
 
 /* ─── Quickdraw: keyframe animations ───────────────────── */
 @keyframes qd-target-pop {
-  0%   { transform: scale(0.3); opacity: 0; }
-  60%  { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 @keyframes qd-draw-pop {
-  0%   { transform: scale(0.6); opacity: 0; }
-  60%  { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 @keyframes qd-dmg-pop {
-  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.7); }
-  25%  { opacity: 1; transform: translate(-50%, -40%) scale(1.05); }
-  85%  { opacity: 1; transform: translate(-50%, -80%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -100%) scale(0.95); }
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.7);
+  }
+  25% {
+    opacity: 1;
+    transform: translate(-50%, -40%) scale(1.05);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.95);
+  }
 }
 @keyframes qd-toast-in {
-  from { opacity: 0; transform: translate(-50%, 20px); }
-  to   { opacity: 1; transform: translate(-50%, 0); }
+  from {
+    opacity: 0;
+    transform: translate(-50%, 20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 @keyframes qd-hp-hit {
-  0%   { background: oklch(0.55 0.05 25); }
-  100% { background: white; }
+  0% {
+    background: oklch(0.55 0.05 25);
+  }
+  100% {
+    background: white;
+  }
 }
 @keyframes qd-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
-.qd-target-animated { animation: qd-target-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
-.qd-draw-animated   { animation: qd-draw-pop  0.32s ease-out; }
-.qd-toast-animated  { animation: qd-toast-in  0.3s  ease-out; }
-.qd-hp-bar-hit      { animation: qd-hp-hit    0.6s  ease-out; }
-.qd-pill-dot-blink  { animation: qd-blink     1.2s  ease-in-out infinite; }
+.qd-target-animated {
+  animation: qd-target-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.qd-draw-animated {
+  animation: qd-draw-pop 0.32s ease-out;
+}
+.qd-toast-animated {
+  animation: qd-toast-in 0.3s ease-out;
+}
+.qd-hp-bar-hit {
+  animation: qd-hp-hit 0.6s ease-out;
+}
+.qd-pill-dot-blink {
+  animation: qd-blink 1.2s ease-in-out infinite;
+}

@@ -5,6 +5,7 @@ import { HpHud } from "@/components/quickdraw/hp-hud";
 import { TargetSvg } from "@/components/quickdraw/target-svg";
 import { Holster } from "@/components/quickdraw/holster";
 import { ResultOverlay } from "@/components/quickdraw/result-overlay";
+import { Badge } from "@/components/ui/badge";
 import type {
   GameState,
   GameActions,
@@ -208,9 +209,7 @@ export function GameScreen({
       {/* Spectator badge */}
       {isSpectator && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
-          <span className="font-mono text-[10px] tracking-[0.12em] uppercase px-2 py-1 rounded-[2px] bg-qd-surface border border-qd-line text-qd-ink-3">
-            Spectating
-          </span>
+          <Badge variant="qd-muted">Spectating</Badge>
         </div>
       )}
 

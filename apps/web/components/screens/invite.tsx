@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
-import { QrPlaceholder } from "@/components/quickdraw/qr-placeholder";
+import { Input } from "@/components/ui/input";
+import { Detail, H1, Small } from "@/components/ui/typography";
 
 interface InviteScreenProps {
   roomCode: string;
@@ -16,99 +18,62 @@ export function InviteScreen({
   onCancel,
   onPlayBot,
 }: InviteScreenProps) {
-  const [copied, setCopied] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const link = `${typeof window !== "undefined" ? window.location.origin : ""}?join=${roomCode.toLowerCase()}`;
+  const display = link.replace(/^https?:\/\//, "");
 
-  const copy = (what: string, value: string) => {
-    navigator.clipboard?.writeText(value).catch(() => {});
-    setCopied(what);
-    setTimeout(() => setCopied(null), 1400);
+  const copy = () => {
+    navigator.clipboard?.writeText(link).catch(() => {});
+    inputRef.current?.select();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
   };
 
   return (
     <div className="flex-1 relative overflow-hidden bg-qd-paper">
       <div className="absolute inset-0 flex items-center justify-center z-10 p-6 overflow-y-auto">
-        <div className="flex flex-col items-center gap-6 max-w-[880px] w-full my-auto">
-          <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-            ROOM CREATED
-          </span>
+        <div className="flex flex-col items-center gap-6 max-w-[560px] w-full my-auto">
+          <Detail>ROOM {roomCode} · CREATED</Detail>
 
-          <h1 className="font-sans text-[36px] font-semibold tracking-[-0.01em] leading-[1.05] text-qd-ink">
-            Invite your opponent.
-          </h1>
+          <H1 className="text-center">Send them the link.</H1>
 
-          <p className="font-mono text-[12px] tracking-[0.04em] text-qd-ink-3">
-            Share any one of these — they all open the same duel.
-          </p>
+          <Small className="text-center max-w-[420px] m-0">
+            Whoever opens this link drops straight into the duel as your
+            opponent. A third visitor watches from the sidelines.
+          </Small>
 
-          {/* Cards row */}
-          <div className="flex items-stretch gap-4 mt-2 flex-wrap justify-center">
-            {/* Room code */}
-            <Card data-variant="qd-card" className="w-[220px]">
-              <CardHeader>
-                <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-                  Room code
-                </span>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-3">
-                <div className="font-mono text-[32px] font-semibold tracking-[0.16em] py-3 text-qd-ink">
-                  {roomCode}
-                </div>
-                <Button
-                  variant="qd-secondary"
-                  className="w-full text-[13px] py-[10px] px-[18px]"
-                  onClick={() => copy("code", roomCode)}
-                >
-                  {copied === "code" ? "✓ Copied" : "Copy code"}
+          {/* Shareable link card */}
+          <Card data-variant="qd-card" className="w-full mt-1">
+            <CardHeader className="flex flex-row justify-between items-center">
+              <Detail>Shareable link</Detail>
+              <Detail className="tracking-[0.08em]">ROOM · {roomCode}</Detail>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <div className="flex gap-2 items-stretch">
+                <Input
+                  ref={inputRef}
+                  className="flex-1 text-qd-ink-2"
+                  value={display}
+                  readOnly
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button onClick={copy}>
+                  {copied ? "✓ Copied" : "Copy link"}
                 </Button>
-              </CardContent>
-            </Card>
-
-            {/* Shareable link */}
-            <Card data-variant="qd-card" className="w-[280px]">
-              <CardHeader>
-                <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-                  Shareable link
-                </span>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-[10px]">
-                <div className="h-9 font-mono text-[12px] tracking-[0.04em] px-[10px] py-2 bg-qd-surface border border-qd-line-strong rounded-[3px] text-qd-ink-2 truncate">
-                  {link}
-                </div>
-                <Button
-                  variant="qd-secondary"
-                  className="text-[13px] py-[10px] px-[18px]"
-                  onClick={() => copy("link", link)}
-                >
-                  {copied === "link" ? "✓ Copied" : "Copy link"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* QR code */}
-            <Card data-variant="qd-card" className="w-[220px]">
-              <CardHeader>
-                <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-                  Scan on phone
-                </span>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-2">
-                <div className="w-[130px] h-[130px] p-[6px] bg-qd-surface border border-qd-line-strong">
-                  <QrPlaceholder size={118} seed={roomCode} />
-                </div>
-                <span className="font-mono text-[10px] tracking-[0.12em] uppercase text-qd-ink-3">
-                  Point your camera
-                </span>
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+              <Detail className="tracking-[0.05em]">
+                Paste it anywhere — chat, DM, email. No code to type.
+              </Detail>
+            </CardContent>
+          </Card>
 
           {/* Waiting pill */}
           <div className="flex items-center gap-3 mt-2">
-            <span className="inline-flex items-center gap-[6px] font-mono text-[10px] tracking-[0.08em] uppercase px-2 py-1 rounded-[2px] bg-qd-accent-soft text-qd-accent border-0">
-              <span className="w-[6px] h-[6px] rounded-full bg-qd-accent qd-pill-dot-blink inline-block" />
+            <Badge variant="qd-accent">
+              <span className="w-1.5 h-1.5 rounded-full bg-qd-accent qd-pill-dot-blink inline-block" />
               Waiting for opponent…
-            </span>
+            </Badge>
           </div>
 
           {/* Actions */}
@@ -116,11 +81,7 @@ export function InviteScreen({
             <Button variant="qd-ghost" onClick={onCancel}>
               ← Cancel duel
             </Button>
-            <Button
-              variant="qd-secondary"
-              className="text-[13px] py-[10px] px-[18px]"
-              onClick={onPlayBot}
-            >
+            <Button variant="qd-secondary" onClick={onPlayBot}>
               Play vs bot instead →
             </Button>
           </div>

@@ -69,7 +69,7 @@ function GameRoot({
       {phase === "landing" && (
         <LandingScreen
           onCreate={(name) => actions.createRoom(name || "YOU")}
-          onJoin={(code) => actions.joinRoom(code, playerName || "YOU")}
+          onJoin={(code, name) => actions.joinRoom(code, name || "YOU")}
           vsBotShortcut={
             onVsBot ??
             (() => {
@@ -100,6 +100,7 @@ function GameRoot({
           myRole={state.myRole}
           onReady={actions.readyUp}
           onUnready={actions.unready}
+          onLeave={actions.reset}
         />
       )}
 
@@ -160,16 +161,22 @@ function MultiplayerGame({
   hasHover,
   onVsBot,
   autoJoin,
+  onClearAutoJoin,
 }: {
   hasHover: boolean;
   onVsBot: () => void;
   autoJoin?: string;
+  onClearAutoJoin: () => void;
 }) {
   const { state, actions } = useMultiplayerGame({ startingHp: 100 });
+  const wrappedReset = () => {
+    onClearAutoJoin();
+    actions.reset();
+  };
   return (
     <GameRoot
       state={state}
-      actions={actions}
+      actions={{ ...actions, reset: wrappedReset }}
       hasHover={hasHover}
       onVsBot={onVsBot}
       inviteCode={autoJoin}
@@ -199,11 +206,17 @@ export default function Home() {
   if (isBot) {
     return <BotGame hasHover={hasHover} autoStart={botAutoStart} />;
   }
+  const handleClearAutoJoin = () => {
+    setAutoJoin(undefined);
+    window.history.replaceState({}, "", "/");
+  };
+
   return (
     <MultiplayerGame
       hasHover={hasHover}
       onVsBot={handleVsBot}
       autoJoin={autoJoin}
+      onClearAutoJoin={handleClearAutoJoin}
     />
   );
 }

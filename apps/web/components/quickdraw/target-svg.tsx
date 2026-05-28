@@ -20,16 +20,7 @@ export function TargetSvg({ size = 200, hit = null }: TargetSvgProps) {
       </g>
       {hit && (
         <g>
-          <line
-            x1={hit.x - 11} y1={hit.y - 11}
-            x2={hit.x + 11} y2={hit.y + 11}
-            stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round"
-          />
-          <line
-            x1={hit.x - 11} y1={hit.y + 11}
-            x2={hit.x + 11} y2={hit.y - 11}
-            stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round"
-          />
+          <circle cx={hit.x} cy={hit.y} r="10" fill="#FFFFFF" stroke="#1A1A1A" strokeWidth="2"/>
           <circle cx={hit.x} cy={hit.y} r="2.5" fill="#1A1A1A"/>
         </g>
       )}
